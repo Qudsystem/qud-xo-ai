@@ -1,0 +1,208 @@
+// CSS
+#gameContainer {
+  width: 600px;
+  height: 400px;
+  margin: auto;
+  position: relative;
+  background-color: #333;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3); /* Added box-shadow for depth */
+}
+
+#player {
+  width: 50px;
+  height: 50px;
+  background-color: red;
+  position: absolute;
+  left: 50px;
+  top: 50px;
+  border-radius: 50%; /* Added border-radius for a circular shape */
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* Added box-shadow for depth */
+  background-image: url("https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/120/apple/325/smiling-face-with-smiling-eyes_1f60a.png"); /* Added a friendly emoji */
+  background-size: cover;
+}
+
+#enemy {
+  width: 30px;
+  height: 30px;
+  background-color: green;
+  position: absolute;
+  left: 500px;
+  top: 50px;
+  border-radius: 50%; /* Added border-radius for a circular shape */
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* Added box-shadow for depth */
+  background-image: url("https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/120/apple/325/alien-monster_1f47e.png"); /* Added a friendly emoji */
+  background-size: cover;
+}
+
+#scoreDisplay {
+  font-size: 24px;
+  color: white;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* Added text-shadow for better visibility */
+}
+
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  background: linear-gradient(to bottom right, #f0f0f0, #e0e0e0);
+  overflow: hidden;
+  position: relative;
+}
+
+#gameContainer {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  width: 306px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.cell {
+  width: 100px;
+  height: 100px;
+  box-shadow: inset 0 0 0 1px #333333;
+  border: none;
+  cursor: pointer;
+  line-height: 100px;
+  font-size: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #f0f0f0;
+  transition: background-color 0.3s ease;
+}
+
+.cell:hover {
+  background-color: #e0e0e0;
+  box-shadow: inset 0 0 0 2px #333333; /* Added box-shadow on hover for better visibility */
+}
+
+#statusText {
+  font-size: 24px;
+  margin-bottom: 20px;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+#restartBtn {
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #333333;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+#restartBtn:hover {
+  background-color: #555555;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); /* Added box-shadow on hover for depth */
+}
+
+.dark-mode {
+  background: linear-gradient(to bottom right, #333333, #222222);
+  color: #ffffff;
+}
+
+.dark-mode .cell {
+  background-color: #444444;
+  box-shadow: inset 0 0 0 1px #ffffff;
+}
+
+.dark-mode .cell:hover {
+  background-color: #555555;
+  box-shadow: inset 0 0 0 2px #ffffff; /* Added box-shadow on hover for better visibility */
+}
+
+.dark-mode #restartBtn {
+  background-color: #ffffff;
+  color: #333333;
+}
+
+.dark-mode #restartBtn:hover {
+  background-color: #e0e0e0;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); /* Added box-shadow on hover for depth */
+}
+
+#toggleDarkMode {
+  background-color: #ffffff;
+  color: #333333;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.3s ease;
+}
+
+#toggleDarkMode:hover {
+  background-color: #e0e0e0;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); /* Added box-shadow on hover for depth */
+}
+
+.dark-mode #toggleDarkMode {
+  background-color: #333333;
+  color: #ffffff;
+}
+
+.dark-mode #toggleDarkMode:hover {
+  background-color: #555555;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.5); /* Added box-shadow on hover for depth */
+}
+
+#restartBtn {
+  margin-right: 10px;
+}
+
+.stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+}
+
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background-color: #ffffff;
+  animation: twinkle 2s infinite;
+}
+
+@keyframes twinkle {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+    animation: celebrat 1s infinite;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes celebrat {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

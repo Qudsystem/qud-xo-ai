@@ -1,0 +1,1987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dark Grid Tic-Tac-Toe | Victory Rush</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+  />
+  <!-- تحميل المكونات الجديدة -->
+  <script src="js/interfaces.js"></script>
+  <script src="js/GameModeManager.js"></script>
+  <script src="js/AchievementSystem.js"></script>
+  <script src="js/ThemeManager.js"></script>
+  <script src="js/SymbolManager.js"></script>
+  <script src="js/StatisticsTracker.js"></script>
+  <script src="js/AudioManager.js"></script>
+  <script src="js/SaveStateManager.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 0 0, rgba(129, 140, 248, 0.35), transparent 55%),
+        radial-gradient(circle at 100% 100%, rgba(236, 72, 153, 0.35), transparent 55%),
+        #020617;
+    }
+
+    .glass-panel {
+      backdrop-filter: blur(18px);
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 64, 175, 0.85));
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.9),
+        0 0 0 1px rgba(148, 163, 184, 0.15);
+    }
+
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      background-image: linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+      background-size: 40px 40px;
+      mask-image: radial-gradient(circle at center, black 0, transparent 70%);
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .cell {
+      transition:
+        transform 0.18s ease-out,
+        box-shadow 0.18s ease-out,
+        background-color 0.18s ease-out,
+        color 0.18s ease-out;
+    }
+
+    .cell:hover {
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 10px 25px rgba(148, 163, 184, 0.2);
+      background-color: rgba(15, 23, 42, 0.85);
+    }
+
+    .cell.played {
+      transform: scale(1.05);
+      box-shadow: 0 0 25px rgba(59, 130, 246, 0.5);
+    }
+
+    .pulse-ring::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 9999px;
+      border: 1px solid rgba(56, 189, 248, 0.6);
+      opacity: 0;
+      animation: pulse-ring 1.6s ease-out infinite;
+    }
+
+    @keyframes pulse-ring {
+      0% {
+        transform: scale(0.9);
+        opacity: 0.7;
+      }
+      100% {
+        transform: scale(1.2);
+        opacity: 0;
+      }
+    }
+
+    .board-shake {
+      animation: board-shake 0.4s ease-in-out;
+    }
+
+    @keyframes board-shake {
+      0%, 100% {
+        transform: translateX(0);
+      }
+      20% {
+        transform: translateX(-5px);
+      }
+      40% {
+        transform: translateX(5px);
+      }
+      60% {
+        transform: translateX(-3px);
+      }
+      80% {
+        transform: translateX(3px);
+      }
+    }
+
+    .confetti-piece {
+      position: absolute;
+      width: 6px;
+      height: 12px;
+      border-radius: 999px;
+      opacity: 0.9;
+      animation: confetti-fall 900ms ease-out forwards;
+    }
+
+    @keyframes confetti-fall {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(80px) rotate(280deg);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body class="relative flex items-center justify-center px-4 py-8 text-slate-100">
+  <div class="grid-bg"></div>
+
+  <div class="glass-panel rounded-3xl px-6 py-8 sm:px-10 sm:py-10 max-w-xl w-full">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <div class="inline-flex items-center space-x-2 rounded-full bg-slate-900/60 px-3 py-1 text-xs text-sky-300 mb-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>AI-Powered</span>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">
+          Dark Grid
+          <span class="bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">
+            Tic-Tac-Toe
+          </span>
+        </h1>
+        <p class="mt-1 text-sm text-slate-300/80">
+          Outsmart the AI through three difficulty levels. Every round is a new rush.
+        </p>
+      </div>
+      <div class="text-right">
+        <div class="text-xs uppercase tracking-wide text-slate-400">Round</div>
+        <div id="round-indicator" class="text-3xl font-semibold text-slate-50">1</div>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="flex items-center justify-between mb-4 text-xs sm:text-sm">
+      <div class="inline-flex items-center space-x-2 px-3 py-2 rounded-full bg-slate-900/70 border border-slate-700/70">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="turn-indicator" class="font-medium text-emerald-300">Your turn (X)</span>
+      </div>
+      <div class="flex items-center space-x-2 text-slate-300/80">
+        <i class="fa-solid fa-microchip text-sky-400"></i>
+        <span id="difficulty-label" class="uppercase tracking-wide text-xs">Hard AI</span>
+      </div>
+    </div>
+
+    <!-- Scoreboard -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:space-x-3 space-y-3 sm:space-y-0">
+      <div class="score-board flex-1 bg-slate-900/60 rounded-2xl px-4 py-3 border border-slate-700/60">
+        <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+          <span>Scoreboard</span>
+          <span class="inline-flex items-center space-x-1">
+            <i class="fa-regular fa-circle-dot text-amber-300"></i>
+            <span>Best of Infinity</span>
+          </span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="bg-slate-800/70 rounded-xl py-2">
+            <div class="text-[10px] uppercase text-emerald-300">You (X)</div>
+            <div class="text-xl font-bold" id="score-player">0</div>
+          </div>
+          <div class="bg-slate-800/70 rounded-xl py-2">
+            <div class="text-[10px] uppercase text-slate-300">Ties</div>
+            <div class="text-xl font-bold" id="score-ties">0</div>
+          </div>
+          <div class="bg-slate-800/70 rounded-xl py-2">
+            <div class="text-[10px] uppercase text-rose-300">AI (O)</div>
+            <div class="text-xl font-bold" id="score-ai">0</div>
+          </div>
+        </div>
+      </div>
+      <!-- Game Mode and Difficulty buttons -->
+      <div class="flex flex-col space-y-3 w-full sm:w-48">
+        <!-- Game Mode buttons -->
+        <div class="flex flex-col space-y-2">
+          <div class="text-[11px] uppercase tracking-wide text-slate-400">وضع اللعب</div>
+          <div class="grid grid-cols-3 gap-2">
+            <button
+              id="ai-mode-btn"
+              class="relative bg-blue-600/90 hover:bg-blue-500 text-white font-medium py-2 rounded-xl text-xs transition-all"
+            >
+              ضد AI
+            </button>
+            <button
+              id="pvp-mode-btn"
+              class="relative bg-purple-600/90 hover:bg-purple-500 text-white font-medium py-2 rounded-xl text-xs transition-all"
+            >
+              لاعب ضد لاعب
+            </button>
+            <button
+              id="ai-vs-ai-btn"
+              class="relative bg-cyan-600/90 hover:bg-cyan-500 text-white font-medium py-2 rounded-xl text-xs transition-all"
+            >
+              AI ضد AI
+            </button>
+          </div>
+        </div>
+        
+        <!-- AI Difficulties (for AI vs AI mode) -->
+        <div class="flex flex-col space-y-2" id="ai-difficulties-section" style="display: none;">
+          <div class="text-[11px] uppercase tracking-wide text-slate-400">صعوبة الذكاء الاصطناعي</div>
+          <div class="space-y-2">
+            <div>
+              <div class="text-[10px] text-slate-400 mb-1">AI 1 (X)</div>
+              <div class="flex justify-between space-x-1">
+                <button class="ai1-difficulty-btn flex-1 bg-emerald-600/90 hover:bg-emerald-500 text-white font-medium py-1 rounded-lg text-xs transition-all" data-difficulty="easy">سهل</button>
+                <button class="ai1-difficulty-btn flex-1 bg-amber-500/90 hover:bg-amber-400 text-white font-medium py-1 rounded-lg text-xs transition-all" data-difficulty="medium">متوسط</button>
+                <button class="ai1-difficulty-btn flex-1 bg-rose-600/90 hover:bg-rose-500 text-white font-medium py-1 rounded-lg text-xs transition-all" data-difficulty="hard">صعب</button>
+              </div>
+            </div>
+            <div>
+              <div class="text-[10px] text-slate-400 mb-1">AI 2 (O)</div>
+              <div class="flex justify-between space-x-1">
+                <button class="ai2-difficulty-btn flex-1 bg-emerald-600/90 hover:bg-emerald-500 text-white font-medium py-1 rounded-lg text-xs transition-all" data-difficulty="easy">سهل</button>
+                <button class="ai2-difficulty-btn flex-1 bg-amber-500/90 hover:bg-amber-400 text-white font-medium py-1 rounded-lg text-xs transition-all" data-difficulty="medium">متوسط</button>
+                <button class="ai2-difficulty-btn flex-1 bg-rose-600/90 hover:bg-rose-500 text-white font-medium py-1 rounded-lg text-xs transition-all" data-difficulty="hard">صعب</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Difficulty buttons -->
+        <div class="flex flex-col space-y-2" id="difficulty-section">
+          <div class="text-[11px] uppercase tracking-wide text-slate-400">Difficulty</div>
+          <div class="flex justify-between space-x-2">
+            <button
+              id="easy-btn"
+              class="relative flex-1 bg-emerald-600/90 hover:bg-emerald-500 text-white font-medium py-2 rounded-xl text-xs transition-all"
+            >
+              Easy
+            </button>
+            <button
+              id="medium-btn"
+              class="relative flex-1 bg-amber-500/90 hover:bg-amber-400 text-white font-medium py-2 rounded-xl text-xs transition-all"
+            >
+              Medium
+            </button>
+            <button
+              id="hard-btn"
+              class="relative flex-1 bg-rose-600/90 hover:bg-rose-500 text-white font-medium py-2 rounded-xl text-xs transition-all"
+            >
+              Hard
+            </button>
+          </div>
+        </div>
+        
+        <!-- AI vs AI Controls -->
+        <div class="flex flex-col space-y-2" id="ai-vs-ai-controls" style="display: none;">
+          <div class="text-[11px] uppercase tracking-wide text-slate-400">التحكم</div>
+          <div class="flex justify-between space-x-2">
+            <button
+              id="ai-play-pause-btn"
+              class="relative flex-1 bg-green-600/90 hover:bg-green-500 text-white font-medium py-2 rounded-xl text-xs transition-all"
+            >
+              <i class="fas fa-play"></i> تشغيل
+            </button>
+            <button
+              id="ai-speed-btn"
+              class="relative flex-1 bg-orange-600/90 hover:bg-orange-500 text-white font-medium py-2 rounded-xl text-xs transition-all"
+            >
+              <i class="fas fa-forward"></i> عادي
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game board -->
+    <div
+      id="board-wrapper"
+      class="game-board grid grid-cols-3 gap-3 mb-6 bg-slate-900/70 rounded-3xl p-4 border border-slate-700/60"
+    >
+      <div
+        class="cell relative h-24 sm:h-28 bg-slate-800/80 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl font-bold cursor-pointer text-slate-100 select-none"
+        data-index="0"
+      ></div>
+      <div
+        class="cell relative h-24 sm:h-28 bg-slate-800/80 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl font-bold cursor-pointer text-slate-100 select-none"
+        data-index="1"
+      ></div>
+      <div
+        class="cell relative h-24 sm:h-28 bg-slate-800/80 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl font-bold cursor-pointer text-slate-100 select-none"
+        data-index="2"
+      ></div>
+      <div
+        class="cell relative h-24 sm:h-28 bg-slate-800/80 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl font-bold cursor-pointer text-slate-100 select-none"
+        data-index="3"
+      ></div>
+      <div
+        class="cell relative h-24 sm:h-28 bg-slate-800/80 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl font-bold cursor-pointer text-slate-100 select-none"
+        data-index="4"
+      ></div>
+      <div
+        class="cell relative h-24 sm:h-28 bg-slate-800/80 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl font-bold cursor-pointer text-slate-100 select-none"
+        data-index="5"
+      ></div>
+      <div
+        class="cell relative h-24 sm:h-28 bg-slate-800/80 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl font-bold cursor-pointer text-slate-100 select-none"
+        data-index="6"
+      ></div>
+      <div
+        class="cell relative h-24 sm:h-28 bg-slate-800/80 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl font-bold cursor-pointer text-slate-100 select-none"
+        data-index="7"
+      ></div>
+      <div
+        class="cell relative h-24 sm:h-28 bg-slate-800/80 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl font-bold cursor-pointer text-slate-100 select-none"
+        data-index="8"
+      ></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+      <div class="flex space-x-3">
+        <button
+          id="reset-btn"
+          class="bg-sky-500 hover:bg-sky-400 text-white font-medium py-3 px-6 rounded-2xl transition flex items-center justify-center space-x-2 shadow-lg shadow-sky-500/30"
+        >
+          <i class="fas fa-redo"></i>
+          <span>New Round</span>
+        </button>
+        <button
+          id="achievements-btn"
+          class="bg-amber-500 hover:bg-amber-400 text-white font-medium py-3 px-4 rounded-2xl transition flex items-center justify-center space-x-2 shadow-lg shadow-amber-500/30"
+        >
+          <i class="fas fa-trophy"></i>
+          <span>الإنجازات</span>
+        </button>
+        <button
+          id="themes-btn"
+          class="bg-purple-500 hover:bg-purple-400 text-white font-medium py-3 px-4 rounded-2xl transition flex items-center justify-center space-x-2 shadow-lg shadow-purple-500/30"
+        >
+          <i class="fas fa-palette"></i>
+          <span>الثيمات</span>
+        </button>
+        <button
+          id="symbols-btn"
+          class="bg-indigo-500 hover:bg-indigo-400 text-white font-medium py-3 px-4 rounded-2xl transition flex items-center justify-center space-x-2 shadow-lg shadow-indigo-500/30"
+        >
+          <i class="fas fa-shapes"></i>
+          <span>الرموز</span>
+        </button>
+        <button
+          id="statistics-btn"
+          class="bg-emerald-500 hover:bg-emerald-400 text-white font-medium py-3 px-4 rounded-2xl transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/30"
+        >
+          <i class="fas fa-chart-bar"></i>
+          <span>الإحصائيات</span>
+        </button>
+        <button
+          id="sound-toggle-btn"
+          class="bg-orange-500 hover:bg-orange-400 text-white font-medium py-3 px-4 rounded-2xl transition flex items-center justify-center space-x-2 shadow-lg shadow-orange-500/30"
+        >
+          <i id="sound-icon" class="fas fa-volume-up"></i>
+          <span id="sound-text">الصوت</span>
+        </button>
+      </div>
+      <div class="text-xs text-slate-400 text-center sm:text-right">
+        <p>
+          You are <span class="font-semibold text-emerald-300">X</span>, AI is
+          <span class="font-semibold text-rose-300">O</span>.
+        </p>
+        <p class="mt-0.5">
+          Try to force a draw against the hard AI with optimal play.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const cells = document.querySelectorAll('.cell');
+      const resetBtn = document.getElementById('reset-btn');
+      const easyBtn = document.getElementById('easy-btn');
+      const mediumBtn = document.getElementById('medium-btn');
+      const hardBtn = document.getElementById('hard-btn');
+      const boardWrapper = document.getElementById('board-wrapper');
+      
+      // أزرار الأوضاع الجديدة
+      const aiModeBtn = document.getElementById('ai-mode-btn');
+      const pvpModeBtn = document.getElementById('pvp-mode-btn');
+      const aiVsAiBtn = document.getElementById('ai-vs-ai-btn');
+      const difficultySection = document.getElementById('difficulty-section');
+      const aiDifficultiesSection = document.getElementById('ai-difficulties-section');
+      const aiVsAiControls = document.getElementById('ai-vs-ai-controls');
+      const aiPlayPauseBtn = document.getElementById('ai-play-pause-btn');
+      const aiSpeedBtn = document.getElementById('ai-speed-btn');
+
+      // متغيرات وضع AI vs AI
+      let aiVsAiPlaying = false;
+      let aiVsAiSpeed = 1000; // مللي ثانية بين الحركات
+      let aiVsAiTimeout = null;
+
+      const scorePlayerEl = document.getElementById('score-player');
+      const scoreTiesEl = document.getElementById('score-ties');
+      const scoreAiEl = document.getElementById('score-ai');
+      const roundIndicator = document.getElementById('round-indicator');
+      const turnIndicator = document.getElementById('turn-indicator');
+      const difficultyLabel = document.getElementById('difficulty-label');
+
+      // المكونات الجديدة
+      const gameModeManager = new GameModeManager();
+      const achievementSystem = new AchievementSystem();
+      const themeManager = new ThemeManager();
+      const symbolManager = new SymbolManager();
+      const statisticsTracker = new StatisticsTracker();
+      const audioManager = new AudioManager();
+      const saveStateManager = new SaveStateManager();
+
+      let currentPlayer = 'X';
+      let gameActive = true;
+      let gameState = ['', '', '', '', '', '', '', '', ''];
+      let difficulty = 'hard';
+      let scores = { player: 0, ties: 0, ai: 0 };
+      let round = 1;
+
+      const winningConditions = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+        [0, 4, 8],
+        [2, 4, 6]
+      ];
+
+      function updateStatus() {
+        if (!gameActive) return;
+        
+        const currentMode = gameModeManager.getCurrentMode();
+        const playerName = gameModeManager.getPlayerName(currentPlayer);
+        
+        if (currentPlayer === 'X') {
+          if (currentMode === 'pvp') {
+            turnIndicator.textContent = `دور ${playerName} (X)`;
+          } else {
+            turnIndicator.textContent = 'Your turn (X)';
+          }
+          turnIndicator.classList.remove('text-rose-300');
+          turnIndicator.classList.add('text-emerald-300');
+        } else {
+          if (currentMode === 'pvp') {
+            turnIndicator.textContent = `دور ${playerName} (O)`;
+          } else {
+            turnIndicator.textContent = 'AI thinking (O)…';
+          }
+          turnIndicator.classList.remove('text-emerald-300');
+          turnIndicator.classList.add('text-rose-300');
+        }
+      }
+
+      function setDifficultyLabel() {
+        const currentMode = gameModeManager.getCurrentMode();
+        
+        if (currentMode === 'pvp') {
+          difficultyLabel.textContent = 'Player vs Player';
+        } else {
+          if (difficulty === 'easy') {
+            difficultyLabel.textContent = 'Easy AI';
+          } else if (difficulty === 'medium') {
+            difficultyLabel.textContent = 'Balanced AI';
+          } else {
+            difficultyLabel.textContent = 'Hard AI';
+          }
+        }
+      }
+
+      function spawnConfetti(x, y, winnerIsPlayer) {
+        const colors = winnerIsPlayer
+          ? ['#22c55e', '#4ade80', '#a7f3d0']
+          : ['#fb7185', '#f97316', '#facc15'];
+
+        for (let i = 0; i < 18; i++) {
+          const piece = document.createElement('div');
+          piece.className = 'confetti-piece';
+          piece.style.left = x + (Math.random() * 80 - 40) + 'px';
+          piece.style.top = y + (Math.random() * 40 - 20) + 'px';
+          piece.style.backgroundColor =
+            colors[Math.floor(Math.random() * colors.length)];
+          piece.style.transform =
+            'rotate(' + (Math.random() * 360) + 'deg)';
+          piece.style.animationDuration =
+            650 + Math.random() * 400 + 'ms';
+          document.body.appendChild(piece);
+          setTimeout(() => piece.remove(), 900);
+        }
+      }
+
+      function handleCellClick(e) {
+        // منع النقر في وضع AI vs AI
+        if (gameModeManager.isAIvsAIMode()) return;
+        
+        const clickedCell = e.currentTarget;
+        const clickedCellIndex = parseInt(
+          clickedCell.getAttribute('data-index'),
+          10
+        );
+
+        if (gameState[clickedCellIndex] !== '' || !gameActive) return;
+
+        // تشغيل صوت النقرة
+        audioManager.playClickSound();
+
+        gameState[clickedCellIndex] = currentPlayer;
+        
+        // استخدام مدير الرموز لعرض الرمز
+        symbolManager.applySymbolToElement(clickedCell, currentPlayer);
+        
+        clickedCell.classList.add(
+          'played',
+          currentPlayer === 'X' ? 'text-sky-400' : 'text-rose-400'
+        );
+
+        // تحديد اللاعب التالي
+        const currentMode = gameModeManager.getCurrentMode();
+        
+        if (currentMode === 'pvp') {
+          // في وضع PvP، التناوب بين اللاعبين
+          currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+          updateStatus();
+          checkResult();
+        } else {
+          // في وضع AI، اللعب ضد الذكاء الاصطناعي
+          currentPlayer = 'O';
+          updateStatus();
+          checkResult();
+
+          if (gameActive) {
+            setTimeout(() => {
+              makeAIMove();
+              currentPlayer = 'X';
+              updateStatus();
+              checkResult();
+            }, 450);
+          }
+        }
+
+        // حفظ تلقائي للحالة
+        saveStateManager.autoSave({
+          currentPlayer,
+          gameActive,
+          gameState,
+          difficulty,
+          scores,
+          round,
+          gameMode: currentMode,
+          playerNames: gameModeManager.playerNames
+        });
+      }
+
+      function checkWinner(board) {
+        for (let i = 0; i < winningConditions.length; i++) {
+          const [a, b, c] = winningConditions[i];
+          if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+            return board[a];
+          }
+        }
+        return null;
+      }
+
+      function minimax(newBoard, player) {
+        const availSpots = newBoard
+          .map((cell, index) => (cell === '' ? index : null))
+          .filter(val => val !== null);
+
+        if (availSpots.length === 8 || availSpots.length === 9) {
+          const centerAndCorners = [0, 2, 4, 6, 8];
+          const preferred = centerAndCorners.filter(i => newBoard[i] === '');
+          if (preferred.length > 0) {
+            return {
+              score: 0,
+              index:
+                preferred[Math.floor(Math.random() * preferred.length)]
+            };
+          }
+        }
+
+        const winner = checkWinner(newBoard);
+        if (winner === 'X') return { score: -10 };
+        if (winner === 'O') return { score: 10 };
+        if (availSpots.length === 0) return { score: 0 };
+
+        const moves = [];
+        for (let i = 0; i < availSpots.length; i++) {
+          const move = {};
+          move.index = availSpots[i];
+          newBoard[availSpots[i]] = player;
+
+          if (player === 'O') {
+            const result = minimax(newBoard, 'X');
+            move.score = result.score;
+          } else {
+            const result = minimax(newBoard, 'O');
+            move.score = result.score;
+          }
+
+          newBoard[availSpots[i]] = '';
+          moves.push(move);
+        }
+
+        let bestMove;
+        if (player === 'O') {
+          let bestScore = -Infinity;
+          for (let i = 0; i < moves.length; i++) {
+            if (moves[i].score > bestScore) {
+              bestScore = moves[i].score;
+              bestMove = i;
+            }
+          }
+        } else {
+          let bestScore = Infinity;
+          for (let i = 0; i < moves.length; i++) {
+            if (moves[i].score < bestScore) {
+              bestScore = moves[i].score;
+              bestMove = i;
+            }
+          }
+        }
+
+        return moves[bestMove];
+      }
+
+      function makeAIMove() {
+        let moveIndex;
+        const emptyCells = gameState
+          .map((cell, index) => (cell === '' ? index : null))
+          .filter(val => val !== null);
+
+        for (let i = 0; i < emptyCells.length; i++) {
+          const testBoard = [...gameState];
+          testBoard[emptyCells[i]] = 'O';
+          if (checkWinner(testBoard) === 'O') {
+            moveIndex = emptyCells[i];
+            applyAIMove(moveIndex);
+            return;
+          }
+        }
+
+        for (let i = 0; i < emptyCells.length; i++) {
+          const testBoard = [...gameState];
+          testBoard[emptyCells[i]] = 'X';
+          if (checkWinner(testBoard) === 'X') {
+            moveIndex = emptyCells[i];
+            applyAIMove(moveIndex);
+            return;
+          }
+        }
+
+        if (difficulty === 'easy') {
+          const preferred = [0, 2, 4, 6, 8].filter(
+            i => gameState[i] === ''
+          );
+          if (preferred.length > 0 && Math.random() > 0.3) {
+            moveIndex =
+              preferred[Math.floor(Math.random() * preferred.length)];
+          } else {
+            moveIndex =
+              emptyCells[Math.floor(Math.random() * emptyCells.length)];
+          }
+        } else if (difficulty === 'medium') {
+          if (Math.random() > 0.3) {
+            const bestSpot = minimax([...gameState], 'O');
+            moveIndex = bestSpot.index;
+          } else {
+            const preferred = [0, 2, 4, 6, 8].filter(
+              i => gameState[i] === ''
+            );
+            if (preferred.length > 0) {
+              moveIndex =
+                preferred[Math.floor(Math.random() * preferred.length)];
+            } else {
+              moveIndex =
+                emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            }
+          }
+        } else {
+          const bestSpot = minimax([...gameState], 'O');
+          moveIndex = bestSpot.index;
+        }
+
+        applyAIMove(moveIndex);
+      }
+
+      function applyAIMove(index) {
+        gameState[index] = 'O';
+        cells[index].textContent = 'O';
+        cells[index].classList.add('played', 'text-rose-400');
+      }
+
+      function checkResult() {
+        const winner = checkWinner(gameState);
+
+        if (winner || !gameState.includes('')) {
+          gameActive = false;
+          boardWrapper.classList.add('board-shake');
+          setTimeout(
+            () => boardWrapper.classList.remove('board-shake'),
+            450
+          );
+        }
+
+        const scoreElements = {
+          player: scorePlayerEl,
+          ties: scoreTiesEl,
+          ai: scoreAiEl
+        };
+
+        if (winner) {
+          const winningCombo = winningConditions.find(combo => {
+            const [a, b, c] = combo;
+            return (
+              gameState[a] &&
+              gameState[a] === gameState[b] &&
+              gameState[a] === gameState[c]
+            );
+          });
+
+          if (winningCombo) {
+            winningCombo.forEach(index => {
+              cells[index].classList.add(
+                'bg-emerald-500/20',
+                'ring-2',
+                'ring-emerald-400',
+                'pulse-ring'
+              );
+            });
+            const midIndex =
+              winningCombo[Math.floor(winningCombo.length / 2)];
+            const rect = cells[midIndex].getBoundingClientRect();
+            spawnConfetti(
+              rect.left + rect.width / 2,
+              rect.top + rect.height / 2,
+              winner === 'X'
+            );
+          }
+
+          const currentMode = gameModeManager.getCurrentMode();
+          let winMessage = '';
+          
+          if (currentMode === 'pvp') {
+            const winnerName = gameModeManager.getPlayerName(winner);
+            winMessage = `${winnerName} يفوز! 🎉`;
+          } else {
+            winMessage = winner === 'X' ? 'You Win! 🎉' : 'AI Wins! 🤖';
+          }
+
+          // تشغيل صوت الفوز
+          audioManager.playWinSound();
+
+          // فحص الإنجازات
+          const gameResult = {
+            winner: winner,
+            difficulty: difficulty,
+            gameMode: gameModeManager.getCurrentMode(),
+            result: winner === 'X' ? 'win' : 'loss'
+          };
+          
+          const unlockedAchievements = achievementSystem.checkAchievement('game-end', gameResult);
+          
+          // فحص إنجاز سلسلة الانتصارات
+          if (winner === 'X') {
+            const currentStreak = statisticsTracker.updateStats(gameResult);
+            const streakAchievements = achievementSystem.checkAchievement('win-streak', { streak: currentStreak });
+            unlockedAchievements.push(...streakAchievements);
+          } else {
+            statisticsTracker.updateStats(gameResult);
+          }
+
+          // عرض إشعارات الإنجازات
+          unlockedAchievements.forEach(achievement => {
+            if (achievement) {
+              showAchievementNotification(achievement);
+            }
+          });
+
+          showEndMessage(winMessage, winner === 'X');
+
+          if (winner === 'X') {
+            scores.player++;
+            scoreElements.player.textContent = scores.player;
+          } else {
+            scores.ai++;
+            scoreElements.ai.textContent = scores.ai;
+          }
+          return;
+        }
+
+        if (!gameState.includes('')) {
+          scores.ties++;
+          scoreElements.ties.textContent = scores.ties;
+          
+          // تشغيل صوت التعادل
+          audioManager.playTieSound();
+          
+          // فحص إنجازات التعادل
+          const gameResult = {
+            winner: null,
+            difficulty: difficulty,
+            gameMode: gameModeManager.getCurrentMode(),
+            result: 'tie'
+          };
+          
+          const unlockedAchievements = achievementSystem.checkAchievement('game-end', gameResult);
+          statisticsTracker.updateStats(gameResult);
+          
+          // عرض إشعارات الإنجازات
+          unlockedAchievements.forEach(achievement => {
+            if (achievement) {
+              showAchievementNotification(achievement);
+            }
+          });
+          
+          showEndMessage("It's a Tie! 🤝", null);
+        }
+      }
+
+      function showEndMessage(title, winnerIsPlayer) {
+        const currentMode = gameModeManager.getCurrentMode();
+        let description = '';
+        
+        if (currentMode === 'pvp') {
+          if (winnerIsPlayer === true) {
+            description = `${gameModeManager.getPlayerName('X')} فاز في هذه الجولة! هل يمكن الاستمرار؟`;
+          } else if (winnerIsPlayer === false) {
+            description = `${gameModeManager.getPlayerName('O')} فاز في هذه الجولة! لعبة رائعة!`;
+          } else {
+            description = 'تعادل مثالي! لم يتمكن أي من اللاعبين من الفوز هذه المرة.';
+          }
+        } else {
+          if (winnerIsPlayer === true) {
+            description = 'You outsmarted the AI this round. Can you keep the streak?';
+          } else if (winnerIsPlayer === false) {
+            description = 'The AI played optimally. Adjust your strategy and try again.';
+          } else {
+            description = 'Perfect balance. Neither side could break through this time.';
+          }
+        }
+
+        const message = document.createElement('div');
+        message.className =
+          'fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50';
+        message.innerHTML = `
+          <div class="bg-slate-900/95 border border-slate-700 rounded-3xl px-6 py-7 max-w-sm w-full text-center shadow-2xl relative overflow-hidden">
+            <div class="absolute inset-x-0 -top-32 h-40 bg-gradient-to-b from-emerald-500/40 to-transparent opacity-60"></div>
+            <h2 class="relative text-3xl font-bold mb-3 text-slate-50 drop-shadow">
+              ${title}
+            </h2>
+            <p class="relative text-xs text-slate-300 mb-6">
+              ${description}
+            </p>
+            <div class="relative flex justify-center space-x-3">
+              <button id="play-again-btn" class="bg-sky-500 hover:bg-sky-400 text-white text-sm font-medium px-5 py-2.5 rounded-2xl flex items-center justify-center space-x-2 shadow-lg shadow-sky-500/40">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Next Round</span>
+              </button>
+              <button id="reset-scores-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-medium px-4 py-2 rounded-2xl border border-slate-600/70">
+                Reset Scores
+              </button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(message);
+
+        document
+          .getElementById('play-again-btn')
+          .addEventListener('click', () => {
+            message.remove();
+            round++;
+            roundIndicator.textContent = round;
+            resetGame(false);
+          });
+
+        document
+          .getElementById('reset-scores-btn')
+          .addEventListener('click', () => {
+            scores = { player: 0, ties: 0, ai: 0 };
+            scorePlayerEl.textContent = '0';
+            scoreTiesEl.textContent = '0';
+            scoreAiEl.textContent = '0';
+            round = 1;
+            roundIndicator.textContent = round;
+            message.remove();
+            resetGame(true);
+          });
+      }
+
+      function resetGame(fullReset) {
+        gameActive = true;
+        currentPlayer = 'X';
+        gameState = ['', '', '', '', '', '', '', '', ''];
+
+        cells.forEach(cell => {
+          cell.textContent = '';
+          cell.classList.remove(
+            'played',
+            'text-sky-400',
+            'text-rose-400',
+            'bg-emerald-500/20',
+            'ring-2',
+            'ring-emerald-400',
+            'pulse-ring'
+          );
+        });
+
+        if (fullReset) {
+          difficulty = 'hard';
+          setDifficultyButtons();
+        }
+
+        updateStatus();
+      }
+
+      function setDifficultyButtons() {
+        [easyBtn, mediumBtn, hardBtn].forEach(btn =>
+          btn.classList.remove(
+            'ring-2',
+            'ring-offset-2',
+            'ring-emerald-400',
+            'ring-amber-300',
+            'ring-rose-400'
+          )
+        );
+
+        if (difficulty === 'easy') {
+          easyBtn.classList.add('ring-2', 'ring-offset-2', 'ring-emerald-400');
+        } else if (difficulty === 'medium') {
+          mediumBtn.classList.add(
+            'ring-2',
+            'ring-offset-2',
+            'ring-amber-300'
+          );
+        } else {
+          hardBtn.classList.add('ring-2', 'ring-offset-2', 'ring-rose-400');
+        }
+
+        setDifficultyLabel();
+      }
+
+      cells.forEach(cell =>
+        cell.addEventListener('click', handleCellClick)
+      );
+      resetBtn.addEventListener('click', () => {
+        round++;
+        roundIndicator.textContent = round;
+        resetGame(false);
+      });
+
+      easyBtn.addEventListener('click', () => {
+        difficulty = 'easy';
+        setDifficultyButtons();
+        resetGame(false);
+      });
+
+      mediumBtn.addEventListener('click', () => {
+        difficulty = 'medium';
+        setDifficultyButtons();
+        resetGame(false);
+      });
+
+      hardBtn.addEventListener('click', () => {
+        difficulty = 'hard';
+        setDifficultyButtons();
+        resetGame(false);
+      });
+
+      // معالجات أحداث أزرار الأوضاع
+      aiModeBtn.addEventListener('click', () => {
+        if (gameModeManager.getCurrentMode() !== 'ai') {
+          stopAIvsAI();
+          gameModeManager.currentMode = 'ai';
+          gameModeManager.updatePlayerNames();
+          setGameModeButtons();
+          setDifficultyLabel();
+          updateStatus();
+          updateScoreLabels();
+          
+          resetGame(false);
+        }
+      });
+
+      pvpModeBtn.addEventListener('click', () => {
+        if (gameModeManager.getCurrentMode() !== 'pvp') {
+          stopAIvsAI();
+          gameModeManager.currentMode = 'pvp';
+          gameModeManager.updatePlayerNames();
+          setGameModeButtons();
+          setDifficultyLabel();
+          updateStatus();
+          updateScoreLabels();
+          
+          // إخفاء أزرار الصعوبة في وضع PvP
+          difficultySection.style.display = 'none';
+          aiDifficultiesSection.style.display = 'none';
+          aiVsAiControls.style.display = 'none';
+          
+          resetGame(false);
+        }
+      });
+
+      // معالج حدث زر AI vs AI
+      aiVsAiBtn.addEventListener('click', () => {
+        if (gameModeManager.getCurrentMode() !== 'ai-vs-ai') {
+          gameModeManager.currentMode = 'ai-vs-ai';
+          gameModeManager.updatePlayerNames();
+          setGameModeButtons();
+          setDifficultyLabel();
+          updateStatus();
+          updateScoreLabels();
+          
+          // إظهار أزرار صعوبة AI وأزرار التحكم
+          difficultySection.style.display = 'none';
+          aiDifficultiesSection.style.display = 'flex';
+          aiVsAiControls.style.display = 'flex';
+          
+          resetGame(false);
+        }
+      });
+
+      // معالجات أزرار صعوبة AI
+      document.querySelectorAll('.ai1-difficulty-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const difficulty = btn.dataset.difficulty;
+          gameModeManager.setAIDifficulty(1, difficulty);
+          setAIDifficultyButtons();
+          updateScoreLabels();
+        });
+      });
+
+      document.querySelectorAll('.ai2-difficulty-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const difficulty = btn.dataset.difficulty;
+          gameModeManager.setAIDifficulty(2, difficulty);
+          setAIDifficultyButtons();
+          updateScoreLabels();
+        });
+      });
+
+      // معالج زر تشغيل/إيقاف AI vs AI
+      aiPlayPauseBtn.addEventListener('click', () => {
+        if (aiVsAiPlaying) {
+          stopAIvsAI();
+        } else {
+          startAIvsAI();
+        }
+      });
+
+      // معالج زر السرعة
+      aiSpeedBtn.addEventListener('click', () => {
+        cycleAISpeed();
+      });
+
+      // معالج حدث زر الإنجازات
+      document.getElementById('achievements-btn').addEventListener('click', () => {
+        showAchievementsModal();
+      });
+
+      // معالج حدث زر الثيمات
+      document.getElementById('themes-btn').addEventListener('click', () => {
+        showThemesModal();
+      });
+
+      // معالج حدث زر الرموز
+      document.getElementById('symbols-btn').addEventListener('click', () => {
+        showSymbolsModal();
+      });
+
+      // معالج حدث زر الإحصائيات
+      document.getElementById('statistics-btn').addEventListener('click', () => {
+        showStatisticsModal();
+      });
+
+      // دالة عرض نافذة الرموز
+      function showSymbolsModal() {
+        const symbolSets = symbolManager.getAvailableSymbolSets();
+        const currentSet = symbolManager.getCurrentSet();
+        
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50';
+        
+        let symbolsHTML = '';
+        symbolSets.forEach(symbolSet => {
+          const isActive = symbolSet.name === currentSet;
+          symbolsHTML += `
+            <div class="symbol-option flex items-center space-x-4 p-4 rounded-xl ${isActive ? 'bg-indigo-500/20 border border-indigo-500/30' : 'bg-slate-800/50 border border-slate-700/50 hover:bg-slate-700/50'} mb-3 cursor-pointer transition-all" data-symbol-set="${symbolSet.name}">
+              <div class="flex space-x-2 text-2xl">
+                <span>${symbolSet.x}</span>
+                <span class="text-slate-500">vs</span>
+                <span>${symbolSet.o}</span>
+              </div>
+              <div class="flex-1">
+                <div class="font-semibold ${isActive ? 'text-indigo-300' : 'text-slate-300'}">${symbolSet.displayName}</div>
+                <div class="text-sm text-slate-400">رموز ${symbolSet.displayName.toLowerCase()}</div>
+              </div>
+              <div class="text-right">
+                ${isActive ? '<i class="fas fa-check-circle text-indigo-400 text-xl"></i>' : '<i class="fas fa-circle text-slate-500"></i>'}
+              </div>
+            </div>
+          `;
+        });
+        
+        modal.innerHTML = `
+          <div class="bg-slate-900/95 border border-slate-700 rounded-3xl px-6 py-7 max-w-md w-full shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-2xl font-bold text-slate-50 flex items-center space-x-2">
+                <i class="fas fa-shapes text-indigo-400"></i>
+                <span>الرموز</span>
+              </h2>
+              <button id="close-symbols" class="text-slate-400 hover:text-slate-200 text-xl">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div class="space-y-3">
+              ${symbolsHTML}
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // معالجات اختيار الرموز
+        modal.querySelectorAll('.symbol-option').forEach(option => {
+          option.addEventListener('click', () => {
+            const symbolSetName = option.dataset.symbolSet;
+            if (symbolManager.setSymbolSet(symbolSetName)) {
+              // تحديث الرموز في اللعبة الحالية
+              cells.forEach(cell => {
+                if (cell.textContent === 'X' || cell.textContent === 'O') {
+                  symbolManager.applySymbolToElement(cell, cell.textContent);
+                }
+              });
+              modal.remove();
+            }
+          });
+        });
+        
+        // معالج إغلاق النافذة
+        modal.querySelector('#close-symbols').addEventListener('click', () => {
+          modal.remove();
+        });
+        
+        // إغلاق عند النقر خارج النافذة
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.remove();
+          }
+        });
+      }
+
+      // دالة عرض نافذة الإحصائيات
+      function showStatisticsModal() {
+        const stats = statisticsTracker.getDetailedStats();
+        
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50';
+        
+        modal.innerHTML = `
+          <div class="bg-slate-900/95 border border-slate-700 rounded-3xl px-6 py-7 max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-2xl font-bold text-slate-50 flex items-center space-x-2">
+                <i class="fas fa-chart-bar text-emerald-400"></i>
+                <span>الإحصائيات</span>
+              </h2>
+              <button id="close-statistics" class="text-slate-400 hover:text-slate-200 text-xl">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            
+            <div class="space-y-4">
+              <!-- إحصائيات عامة -->
+              <div class="bg-slate-800/50 rounded-xl p-4">
+                <h3 class="text-lg font-semibold text-slate-200 mb-3">إحصائيات عامة</h3>
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-emerald-400">${stats.totalGames}</div>
+                    <div class="text-sm text-slate-400">إجمالي الألعاب</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-amber-400">${stats.totalPlayTime}</div>
+                    <div class="text-sm text-slate-400">وقت اللعب</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- معدلات الفوز -->
+              <div class="bg-slate-800/50 rounded-xl p-4">
+                <h3 class="text-lg font-semibold text-slate-200 mb-3">معدلات الفوز</h3>
+                <div class="space-y-2">
+                  <div class="flex justify-between items-center">
+                    <span class="text-emerald-300">سهل</span>
+                    <span class="text-slate-300">${stats.winRates.easy}%</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-amber-300">متوسط</span>
+                    <span class="text-slate-300">${stats.winRates.medium}%</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-rose-300">صعب</span>
+                    <span class="text-slate-300">${stats.winRates.hard}%</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-purple-300">لاعب ضد لاعب</span>
+                    <span class="text-slate-300">${stats.winRates.pvp}%</span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- سلاسل الانتصارات -->
+              <div class="bg-slate-800/50 rounded-xl p-4">
+                <h3 class="text-lg font-semibold text-slate-200 mb-3">سلاسل الانتصارات</h3>
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-sky-400">${stats.currentWinStreak}</div>
+                    <div class="text-sm text-slate-400">السلسلة الحالية</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-orange-400">${stats.longestWinStreak}</div>
+                    <div class="text-sm text-slate-400">أطول سلسلة</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- تفاصيل النتائج -->
+              <div class="bg-slate-800/50 rounded-xl p-4">
+                <h3 class="text-lg font-semibold text-slate-200 mb-3">تفاصيل النتائج</h3>
+                <div class="grid grid-cols-4 gap-2 text-xs">
+                  <div class="text-center font-semibold text-slate-400">المستوى</div>
+                  <div class="text-center font-semibold text-emerald-400">فوز</div>
+                  <div class="text-center font-semibold text-rose-400">خسارة</div>
+                  <div class="text-center font-semibold text-slate-400">تعادل</div>
+                  
+                  <div class="text-center text-slate-300">سهل</div>
+                  <div class="text-center text-emerald-300">${stats.detailedResults.wins.easy}</div>
+                  <div class="text-center text-rose-300">${stats.detailedResults.losses.easy}</div>
+                  <div class="text-center text-slate-300">${stats.detailedResults.ties.easy}</div>
+                  
+                  <div class="text-center text-slate-300">متوسط</div>
+                  <div class="text-center text-emerald-300">${stats.detailedResults.wins.medium}</div>
+                  <div class="text-center text-rose-300">${stats.detailedResults.losses.medium}</div>
+                  <div class="text-center text-slate-300">${stats.detailedResults.ties.medium}</div>
+                  
+                  <div class="text-center text-slate-300">صعب</div>
+                  <div class="text-center text-emerald-300">${stats.detailedResults.wins.hard}</div>
+                  <div class="text-center text-rose-300">${stats.detailedResults.losses.hard}</div>
+                  <div class="text-center text-slate-300">${stats.detailedResults.ties.hard}</div>
+                  
+                  <div class="text-center text-slate-300">PvP</div>
+                  <div class="text-center text-emerald-300">${stats.detailedResults.wins.pvp}</div>
+                  <div class="text-center text-rose-300">${stats.detailedResults.losses.pvp}</div>
+                  <div class="text-center text-slate-300">${stats.detailedResults.ties.pvp}</div>
+                </div>
+              </div>
+              
+              <!-- زر إعادة تعيين -->
+              <div class="text-center">
+                <button id="reset-stats-btn" class="bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-4 rounded-xl transition">
+                  <i class="fas fa-trash-alt mr-2"></i>
+                  إعادة تعيين الإحصائيات
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // معالج إعادة تعيين الإحصائيات
+        modal.querySelector('#reset-stats-btn').addEventListener('click', () => {
+          if (confirm('هل أنت متأكد من إعادة تعيين جميع الإحصائيات؟')) {
+            statisticsTracker.resetStats();
+            modal.remove();
+          }
+        });
+        
+        // معالج إغلاق النافذة
+        modal.querySelector('#close-statistics').addEventListener('click', () => {
+          modal.remove();
+        });
+        
+        // إغلاق عند النقر خارج النافذة
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.remove();
+          }
+        });
+      }
+
+      // معالج حدث زر الرموز
+      document.getElementById('symbols-btn').addEventListener('click', () => {
+        showSymbolsModal();
+      });
+
+      // معالج حدث زر الإحصائيات
+      document.getElementById('statistics-btn').addEventListener('click', () => {
+        showStatisticsModal();
+      });
+
+      // دالة عرض نافذة الإحصائيات
+      function showStatisticsModal() {
+        const stats = statisticsTracker.getDetailedStats();
+        const quickStats = statisticsTracker.getQuickStats();
+        
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50';
+        
+        modal.innerHTML = `
+          <div class="bg-slate-900/95 border border-slate-700 rounded-3xl px-6 py-7 max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-2xl font-bold text-slate-50 flex items-center space-x-2">
+                <i class="fas fa-chart-bar text-emerald-400"></i>
+                <span>الإحصائيات المفصلة</span>
+              </h2>
+              <button id="close-statistics" class="text-slate-400 hover:text-slate-200 text-xl">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            
+            <!-- إحصائيات سريعة -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+              <div class="bg-slate-800/50 rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-emerald-400">${quickStats.totalGames}</div>
+                <div class="text-sm text-slate-400">إجمالي الألعاب</div>
+              </div>
+              <div class="bg-slate-800/50 rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-sky-400">${quickStats.overallWinRate}%</div>
+                <div class="text-sm text-slate-400">معدل الفوز العام</div>
+              </div>
+              <div class="bg-slate-800/50 rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-amber-400">${quickStats.bestStreak}</div>
+                <div class="text-sm text-slate-400">أطول سلسلة انتصارات</div>
+              </div>
+              <div class="bg-slate-800/50 rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-purple-400">${stats.totalPlayTime}</div>
+                <div class="text-sm text-slate-400">وقت اللعب الإجمالي</div>
+              </div>
+            </div>
+            
+            <!-- معدلات الفوز حسب الصعوبة -->
+            <div class="mb-6">
+              <h3 class="text-lg font-semibold text-slate-200 mb-3">معدل الفوز حسب الصعوبة</h3>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                  <span class="text-emerald-300">سهل</span>
+                  <div class="flex items-center space-x-2">
+                    <div class="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                      <div class="h-full bg-emerald-400 rounded-full" style="width: ${stats.winRates.easy}%"></div>
+                    </div>
+                    <span class="text-sm text-slate-300">${stats.winRates.easy}%</span>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                  <span class="text-amber-300">متوسط</span>
+                  <div class="flex items-center space-x-2">
+                    <div class="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                      <div class="h-full bg-amber-400 rounded-full" style="width: ${stats.winRates.medium}%"></div>
+                    </div>
+                    <span class="text-sm text-slate-300">${stats.winRates.medium}%</span>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                  <span class="text-rose-300">صعب</span>
+                  <div class="flex items-center space-x-2">
+                    <div class="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                      <div class="h-full bg-rose-400 rounded-full" style="width: ${stats.winRates.hard}%"></div>
+                    </div>
+                    <span class="text-sm text-slate-300">${stats.winRates.hard}%</span>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                  <span class="text-purple-300">لاعب ضد لاعب</span>
+                  <div class="flex items-center space-x-2">
+                    <div class="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                      <div class="h-full bg-purple-400 rounded-full" style="width: ${stats.winRates.pvp}%"></div>
+                    </div>
+                    <span class="text-sm text-slate-300">${stats.winRates.pvp}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- تفاصيل إضافية -->
+            <div class="grid grid-cols-3 gap-3 text-center text-sm">
+              <div class="bg-slate-800/30 rounded-lg p-3">
+                <div class="text-emerald-400 font-bold">${quickStats.totalWins}</div>
+                <div class="text-slate-400">انتصارات</div>
+              </div>
+              <div class="bg-slate-800/30 rounded-lg p-3">
+                <div class="text-slate-400 font-bold">${quickStats.totalTies}</div>
+                <div class="text-slate-400">تعادل</div>
+              </div>
+              <div class="bg-slate-800/30 rounded-lg p-3">
+                <div class="text-rose-400 font-bold">${quickStats.totalLosses}</div>
+                <div class="text-slate-400">هزائم</div>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // معالج إغلاق النافذة
+        modal.querySelector('#close-statistics').addEventListener('click', () => {
+          modal.remove();
+        });
+        
+        // إغلاق عند النقر خارج النافذة
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.remove();
+          }
+        });
+      }
+
+      // دالة عرض نافذة الرموز
+      function showSymbolsModal() {
+        const symbolSets = symbolManager.getAvailableSymbolSets();
+        const currentSet = symbolManager.getCurrentSet();
+        
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50';
+        
+        let symbolsHTML = '';
+        symbolSets.forEach(symbolSet => {
+          const isActive = symbolSet.name === currentSet;
+          const xSymbol = symbolSet.name === 'icons' ? `<i class="${symbolSet.x}"></i>` : symbolSet.x;
+          const oSymbol = symbolSet.name === 'icons' ? `<i class="${symbolSet.o}"></i>` : symbolSet.o;
+          
+          symbolsHTML += `
+            <div class="symbol-option flex items-center space-x-4 p-4 rounded-xl ${isActive ? 'bg-indigo-500/20 border border-indigo-500/30' : 'bg-slate-800/50 border border-slate-700/50 hover:bg-slate-700/50'} mb-3 cursor-pointer transition-all" data-symbol-set="${symbolSet.name}">
+              <div class="flex items-center space-x-2 text-2xl">
+                <span class="text-sky-400">${xSymbol}</span>
+                <span class="text-slate-400">vs</span>
+                <span class="text-rose-400">${oSymbol}</span>
+              </div>
+              <div class="flex-1">
+                <div class="font-semibold ${isActive ? 'text-indigo-300' : 'text-slate-300'}">${symbolSet.displayName}</div>
+                <div class="text-sm text-slate-400">مجموعة ${symbolSet.displayName.toLowerCase()}</div>
+              </div>
+              <div class="text-right">
+                ${isActive ? '<i class="fas fa-check-circle text-indigo-400 text-xl"></i>' : '<i class="fas fa-circle text-slate-500"></i>'}
+              </div>
+            </div>
+          `;
+        });
+        
+        modal.innerHTML = `
+          <div class="bg-slate-900/95 border border-slate-700 rounded-3xl px-6 py-7 max-w-md w-full shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-2xl font-bold text-slate-50 flex items-center space-x-2">
+                <i class="fas fa-shapes text-indigo-400"></i>
+                <span>الرموز</span>
+              </h2>
+              <button id="close-symbols" class="text-slate-400 hover:text-slate-200 text-xl">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div class="space-y-3">
+              ${symbolsHTML}
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // معالجات اختيار الرموز
+        modal.querySelectorAll('.symbol-option').forEach(option => {
+          option.addEventListener('click', () => {
+            const symbolSetName = option.dataset.symbolSet;
+            if (symbolManager.setSymbolSet(symbolSetName)) {
+              // تحديث الرموز في اللعبة الحالية
+              updateGameSymbols();
+              modal.remove();
+            }
+          });
+        });
+        
+        // معالج إغلاق النافذة
+        modal.querySelector('#close-symbols').addEventListener('click', () => {
+          modal.remove();
+        });
+        
+        // إغلاق عند النقر خارج النافذة
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.remove();
+          }
+        });
+      }
+
+      // دالة تحديث الرموز في اللعبة
+      function updateGameSymbols() {
+        cells.forEach((cell, index) => {
+          if (gameState[index] !== '') {
+            symbolManager.applySymbolToElement(cell, gameState[index]);
+          }
+        });
+      }
+
+      // دالة عرض نافذة الثيمات
+      function showThemesModal() {
+        const themes = themeManager.getAvailableThemes();
+        const currentTheme = themeManager.getCurrentTheme();
+        
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50';
+        
+        let themesHTML = '';
+        themes.forEach(theme => {
+          const isActive = theme.name === currentTheme;
+          themesHTML += `
+            <div class="theme-option flex items-center space-x-4 p-4 rounded-xl ${isActive ? 'bg-blue-500/20 border border-blue-500/30' : 'bg-slate-800/50 border border-slate-700/50 hover:bg-slate-700/50'} mb-3 cursor-pointer transition-all" data-theme="${theme.name}">
+              <div class="w-8 h-8 rounded-full border-2 border-slate-600" style="background: linear-gradient(135deg, ${theme.colors?.primary || '#3b82f6'}, ${theme.colors?.secondary || '#ec4899'})"></div>
+              <div class="flex-1">
+                <div class="font-semibold ${isActive ? 'text-blue-300' : 'text-slate-300'}">${theme.displayName}</div>
+                <div class="text-sm text-slate-400">ثيم ${theme.displayName.toLowerCase()}</div>
+              </div>
+              <div class="text-right">
+                ${isActive ? '<i class="fas fa-check-circle text-blue-400 text-xl"></i>' : '<i class="fas fa-circle text-slate-500"></i>'}
+              </div>
+            </div>
+          `;
+        });
+        
+        modal.innerHTML = `
+          <div class="bg-slate-900/95 border border-slate-700 rounded-3xl px-6 py-7 max-w-md w-full shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-2xl font-bold text-slate-50 flex items-center space-x-2">
+                <i class="fas fa-palette text-purple-400"></i>
+                <span>الثيمات</span>
+              </h2>
+              <button id="close-themes" class="text-slate-400 hover:text-slate-200 text-xl">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div class="space-y-3">
+              ${themesHTML}
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // معالجات اختيار الثيم
+        modal.querySelectorAll('.theme-option').forEach(option => {
+          option.addEventListener('click', () => {
+            const themeName = option.dataset.theme;
+            if (themeManager.applyTheme(themeName)) {
+              modal.remove();
+            }
+          });
+        });
+        
+        // معالج إغلاق النافذة
+        modal.querySelector('#close-themes').addEventListener('click', () => {
+          modal.remove();
+        });
+        
+        // إغلاق عند النقر خارج النافذة
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.remove();
+          }
+        });
+      }
+
+      // دالة عرض إشعار الإنجاز
+      function showAchievementNotification(achievement) {
+        audioManager.playAchievementSound();
+        
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-4 rounded-2xl shadow-2xl z-50 transform translate-x-full transition-transform duration-500';
+        notification.innerHTML = `
+          <div class="flex items-center space-x-3">
+            <i class="${achievement.icon} text-2xl"></i>
+            <div>
+              <div class="font-bold">إنجاز جديد!</div>
+              <div class="text-sm">${achievement.name}</div>
+              <div class="text-xs opacity-90">${achievement.description}</div>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // تحريك الإشعار للداخل
+        setTimeout(() => {
+          notification.classList.remove('translate-x-full');
+        }, 100);
+        
+        // إخفاء الإشعار بعد 4 ثوان
+        setTimeout(() => {
+          notification.classList.add('translate-x-full');
+          setTimeout(() => notification.remove(), 500);
+        }, 4000);
+      }
+
+      // دالة عرض نافذة الإنجازات
+      function showAchievementsModal() {
+        const achievements = achievementSystem.getAchievements();
+        
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50';
+        
+        let achievementsHTML = '';
+        achievements.forEach(achievement => {
+          const isUnlocked = achievement.unlocked;
+          achievementsHTML += `
+            <div class="flex items-center space-x-4 p-4 rounded-xl ${isUnlocked ? 'bg-emerald-500/20 border border-emerald-500/30' : 'bg-slate-800/50 border border-slate-700/50'} mb-3">
+              <div class="text-2xl ${isUnlocked ? 'text-emerald-400' : 'text-slate-500'}">
+                <i class="${achievement.icon}"></i>
+              </div>
+              <div class="flex-1">
+                <div class="font-semibold ${isUnlocked ? 'text-emerald-300' : 'text-slate-400'}">${achievement.name}</div>
+                <div class="text-sm ${isUnlocked ? 'text-emerald-200' : 'text-slate-500'}">${achievement.description}</div>
+                ${isUnlocked ? `<div class="text-xs text-emerald-400 mt-1">تم الإنجاز: ${new Date(achievement.unlockedAt).toLocaleDateString('ar')}</div>` : ''}
+              </div>
+              <div class="text-right">
+                ${isUnlocked ? '<i class="fas fa-check-circle text-emerald-400 text-xl"></i>' : '<i class="fas fa-lock text-slate-500"></i>'}
+              </div>
+            </div>
+          `;
+        });
+        
+        modal.innerHTML = `
+          <div class="bg-slate-900/95 border border-slate-700 rounded-3xl px-6 py-7 max-w-md w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-2xl font-bold text-slate-50 flex items-center space-x-2">
+                <i class="fas fa-trophy text-amber-400"></i>
+                <span>الإنجازات</span>
+              </h2>
+              <button id="close-achievements" class="text-slate-400 hover:text-slate-200 text-xl">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div class="space-y-3">
+              ${achievementsHTML}
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // معالج إغلاق النافذة
+        modal.querySelector('#close-achievements').addEventListener('click', () => {
+          modal.remove();
+        });
+        
+        // إغلاق عند النقر خارج النافذة
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.remove();
+          }
+        });
+      }
+
+      // دالة تحديث أزرار الأوضاع
+      function setGameModeButtons() {
+        [aiModeBtn, pvpModeBtn, aiVsAiBtn].forEach(btn =>
+          btn.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-400', 'ring-purple-400', 'ring-cyan-400')
+        );
+
+        const currentMode = gameModeManager.getCurrentMode();
+        if (currentMode === 'ai') {
+          aiModeBtn.classList.add('ring-2', 'ring-offset-2', 'ring-blue-400');
+          difficultySection.style.display = 'flex';
+          aiDifficultiesSection.style.display = 'none';
+          aiVsAiControls.style.display = 'none';
+        } else if (currentMode === 'pvp') {
+          pvpModeBtn.classList.add('ring-2', 'ring-offset-2', 'ring-purple-400');
+          difficultySection.style.display = 'none';
+          aiDifficultiesSection.style.display = 'none';
+          aiVsAiControls.style.display = 'none';
+        } else if (currentMode === 'ai-vs-ai') {
+          aiVsAiBtn.classList.add('ring-2', 'ring-offset-2', 'ring-cyan-400');
+          difficultySection.style.display = 'none';
+          aiDifficultiesSection.style.display = 'flex';
+          aiVsAiControls.style.display = 'flex';
+        }
+      }
+
+      // دالة تحديث أزرار صعوبة AI
+      function setAIDifficultyButtons() {
+        const ai1Difficulty = gameModeManager.getAIDifficulty(1);
+        const ai2Difficulty = gameModeManager.getAIDifficulty(2);
+        
+        document.querySelectorAll('.ai1-difficulty-btn').forEach(btn => {
+          btn.classList.remove('ring-2', 'ring-offset-1', 'ring-white');
+          if (btn.dataset.difficulty === ai1Difficulty) {
+            btn.classList.add('ring-2', 'ring-offset-1', 'ring-white');
+          }
+        });
+        
+        document.querySelectorAll('.ai2-difficulty-btn').forEach(btn => {
+          btn.classList.remove('ring-2', 'ring-offset-1', 'ring-white');
+          if (btn.dataset.difficulty === ai2Difficulty) {
+            btn.classList.add('ring-2', 'ring-offset-1', 'ring-white');
+          }
+        });
+      }
+
+      // دالة بدء وضع AI vs AI
+      function startAIvsAI() {
+        if (!gameActive) {
+          resetGame(false);
+        }
+        
+        aiVsAiPlaying = true;
+        aiPlayPauseBtn.innerHTML = '<i class="fas fa-pause"></i> إيقاف';
+        aiPlayPauseBtn.classList.remove('bg-green-600/90', 'hover:bg-green-500');
+        aiPlayPauseBtn.classList.add('bg-red-600/90', 'hover:bg-red-500');
+        
+        playAIvsAIMove();
+      }
+
+      // دالة إيقاف وضع AI vs AI
+      function stopAIvsAI() {
+        aiVsAiPlaying = false;
+        if (aiVsAiTimeout) {
+          clearTimeout(aiVsAiTimeout);
+          aiVsAiTimeout = null;
+        }
+        aiPlayPauseBtn.innerHTML = '<i class="fas fa-play"></i> تشغيل';
+        aiPlayPauseBtn.classList.remove('bg-red-600/90', 'hover:bg-red-500');
+        aiPlayPauseBtn.classList.add('bg-green-600/90', 'hover:bg-green-500');
+      }
+
+      // دالة تنفيذ حركة AI vs AI
+      function playAIvsAIMove() {
+        if (!aiVsAiPlaying || !gameActive) {
+          if (!gameActive) {
+            // اللعبة انتهت، ابدأ جولة جديدة تلقائياً
+            setTimeout(() => {
+              if (aiVsAiPlaying) {
+                round++;
+                roundIndicator.textContent = round;
+                resetGame(false);
+                playAIvsAIMove();
+              }
+            }, 2000);
+          }
+          return;
+        }
+
+        // تحديد صعوبة AI الحالي
+        const currentAIDifficulty = currentPlayer === 'X' 
+          ? gameModeManager.getAIDifficulty(1) 
+          : gameModeManager.getAIDifficulty(2);
+        
+        // تنفيذ حركة AI
+        aiVsAiTimeout = setTimeout(() => {
+          if (!gameActive || !aiVsAiPlaying) return;
+          
+          makeAIMoveWithDifficulty(currentAIDifficulty);
+          
+          // تبديل اللاعب
+          currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+          updateStatus();
+          checkResult();
+          
+          // الحركة التالية
+          if (gameActive && aiVsAiPlaying) {
+            playAIvsAIMove();
+          }
+        }, aiVsAiSpeed);
+      }
+
+      // دالة تنفيذ حركة AI بصعوبة محددة
+      function makeAIMoveWithDifficulty(difficultyLevel) {
+        let moveIndex;
+        const emptyCells = gameState
+          .map((cell, index) => (cell === '' ? index : null))
+          .filter(val => val !== null);
+
+        if (emptyCells.length === 0) return;
+
+        // فحص الفوز
+        for (let i = 0; i < emptyCells.length; i++) {
+          const testBoard = [...gameState];
+          testBoard[emptyCells[i]] = currentPlayer;
+          if (checkWinner(testBoard) === currentPlayer) {
+            moveIndex = emptyCells[i];
+            applyAIMoveForPlayer(moveIndex, currentPlayer);
+            return;
+          }
+        }
+
+        // فحص الحجب
+        const opponent = currentPlayer === 'X' ? 'O' : 'X';
+        for (let i = 0; i < emptyCells.length; i++) {
+          const testBoard = [...gameState];
+          testBoard[emptyCells[i]] = opponent;
+          if (checkWinner(testBoard) === opponent) {
+            moveIndex = emptyCells[i];
+            applyAIMoveForPlayer(moveIndex, currentPlayer);
+            return;
+          }
+        }
+
+        // اختيار الحركة حسب الصعوبة
+        if (difficultyLevel === 'easy') {
+          const preferred = [0, 2, 4, 6, 8].filter(i => gameState[i] === '');
+          if (preferred.length > 0 && Math.random() > 0.3) {
+            moveIndex = preferred[Math.floor(Math.random() * preferred.length)];
+          } else {
+            moveIndex = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+          }
+        } else if (difficultyLevel === 'medium') {
+          if (Math.random() > 0.3) {
+            const bestSpot = minimaxForPlayer([...gameState], currentPlayer);
+            moveIndex = bestSpot.index;
+          } else {
+            const preferred = [0, 2, 4, 6, 8].filter(i => gameState[i] === '');
+            if (preferred.length > 0) {
+              moveIndex = preferred[Math.floor(Math.random() * preferred.length)];
+            } else {
+              moveIndex = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            }
+          }
+        } else {
+          const bestSpot = minimaxForPlayer([...gameState], currentPlayer);
+          moveIndex = bestSpot.index;
+        }
+
+        applyAIMoveForPlayer(moveIndex, currentPlayer);
+      }
+
+      // دالة minimax للاعب محدد
+      function minimaxForPlayer(newBoard, player) {
+        const availSpots = newBoard
+          .map((cell, index) => (cell === '' ? index : null))
+          .filter(val => val !== null);
+
+        const winner = checkWinner(newBoard);
+        if (winner === player) return { score: 10 };
+        if (winner && winner !== player) return { score: -10 };
+        if (availSpots.length === 0) return { score: 0 };
+
+        const moves = [];
+        const opponent = player === 'X' ? 'O' : 'X';
+
+        for (let i = 0; i < availSpots.length; i++) {
+          const move = {};
+          move.index = availSpots[i];
+          newBoard[availSpots[i]] = player;
+
+          const result = minimaxForPlayer(newBoard, opponent);
+          move.score = -result.score;
+
+          newBoard[availSpots[i]] = '';
+          moves.push(move);
+        }
+
+        let bestMove = moves[0];
+        for (let i = 1; i < moves.length; i++) {
+          if (moves[i].score > bestMove.score) {
+            bestMove = moves[i];
+          }
+        }
+
+        return bestMove;
+      }
+
+      // دالة تطبيق حركة AI للاعب محدد
+      function applyAIMoveForPlayer(index, player) {
+        gameState[index] = player;
+        audioManager.playClickSound();
+        symbolManager.applySymbolToElement(cells[index], player);
+        cells[index].classList.add(
+          'played',
+          player === 'X' ? 'text-sky-400' : 'text-rose-400'
+        );
+      }
+
+      // دالة تغيير سرعة AI vs AI
+      function cycleAISpeed() {
+        if (aiVsAiSpeed === 1000) {
+          aiVsAiSpeed = 500;
+          aiSpeedBtn.innerHTML = '<i class="fas fa-forward"></i> سريع';
+        } else if (aiVsAiSpeed === 500) {
+          aiVsAiSpeed = 200;
+          aiSpeedBtn.innerHTML = '<i class="fas fa-fast-forward"></i> سريع جداً';
+        } else {
+          aiVsAiSpeed = 1000;
+          aiSpeedBtn.innerHTML = '<i class="fas fa-forward"></i> عادي';
+        }
+      }
+
+      // دالة تحديث تسميات النقاط
+      function updateScoreLabels() {
+        const currentMode = gameModeManager.getCurrentMode();
+        const playerLabels = document.querySelectorAll('.score-board .text-\\[10px\\]');
+        
+        if (currentMode === 'pvp') {
+          if (playerLabels[0]) playerLabels[0].textContent = 'اللاعب 1 (X)';
+          if (playerLabels[2]) playerLabels[2].textContent = 'اللاعب 2 (O)';
+        } else if (currentMode === 'ai-vs-ai') {
+          if (playerLabels[0]) playerLabels[0].textContent = `AI 1 (X) - ${gameModeManager.getDifficultyLabel(gameModeManager.getAIDifficulty(1))}`;
+          if (playerLabels[2]) playerLabels[2].textContent = `AI 2 (O) - ${gameModeManager.getDifficultyLabel(gameModeManager.getAIDifficulty(2))}`;
+        } else {
+          if (playerLabels[0]) playerLabels[0].textContent = 'You (X)';
+          if (playerLabels[2]) playerLabels[2].textContent = 'AI (O)';
+        }
+      }
+
+      // تهيئة المكونات الجديدة
+      function initializeNewComponents() {
+        try {
+          // تطبيق الثيم المحفوظ
+          themeManager.applyTheme(themeManager.getCurrentTheme());
+          
+          // إضافة أنماط الرموز
+          symbolManager.addSymbolStyles();
+          
+          // بدء جلسة الإحصائيات
+          statisticsTracker.startSession();
+          
+          // تحديث زر الصوت
+          updateSoundButton(audioManager.isSoundEnabled());
+          
+          // تحميل الحالة المحفوظة إن وجدت
+          const savedState = saveStateManager.loadGameState();
+          if (savedState) {
+            // يمكن إضافة منطق استعادة الحالة هنا لاحقاً
+          }
+        } catch (error) {
+          console.warn('خطأ في تهيئة المكونات الجديدة:', error);
+        }
+      }
+
+      // معالج حدث زر الصوت
+      document.getElementById('sound-toggle-btn').addEventListener('click', () => {
+        const isEnabled = audioManager.toggleSound();
+        updateSoundButton(isEnabled);
+      });
+
+      // دالة تحديث زر الصوت
+      function updateSoundButton(isEnabled) {
+        const soundIcon = document.getElementById('sound-icon');
+        const soundText = document.getElementById('sound-text');
+        
+        if (isEnabled) {
+          soundIcon.className = 'fas fa-volume-up';
+          soundText.textContent = 'الصوت';
+        } else {
+          soundIcon.className = 'fas fa-volume-mute';
+          soundText.textContent = 'صامت';
+        }
+      }
+
+      // تهيئة الأزرار والمكونات
+      setGameModeButtons();
+      setDifficultyButtons();
+      setAIDifficultyButtons();
+      updateStatus();
+      updateScoreLabels();
+      initializeNewComponents();
+    });
+  </script>
+</body>
+</html>

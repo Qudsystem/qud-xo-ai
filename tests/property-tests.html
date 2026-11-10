@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبارات الخصائص - لعبة XO المحسّنة</title>
+    <script src="https://unpkg.com/fast-check/lib/bundle.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .test-pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .test-fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .test-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>اختبارات الخصائص - لعبة XO المحسّنة</h1>
+    <div id="test-results"></div>
+
+    <!-- تحميل المكونات -->
+    <script src="../js/interfaces.js"></script>
+    <script src="../js/GameModeManager.js"></script>
+    <script src="../js/AchievementSystem.js"></script>
+    <script src="../js/ThemeManager.js"></script>
+    <script src="../js/SymbolManager.js"></script>
+    <script src="../js/StatisticsTracker.js"></script>
+    <script src="../js/AudioManager.js"></script>
+    <script src="../js/SaveStateManager.js"></script>
+
+    <script>
+        // مساعدات الاختبار
+        const TestHelpers = {
+            logResult(testName, result, details = '') {
+                const container = document.getElementById('test-results');
+                const div = document.createElement('div');
+                div.className = 'test-container';
+                
+                const resultDiv = document.createElement('div');
+                resultDiv.className = `test-result ${result ? 'test-pass' : 'test-fail'}`;
+                resultDiv.innerHTML = `
+                    <strong>${testName}</strong>: ${result ? 'نجح ✓' : 'فشل ✗'}
+                    ${details ? `<pre>${details}</pre>` : ''}
+                `;
+                
+                div.appendChild(resultDiv);
+                container.appendChild(div);
+            },
+
+            logInfo(message) {
+                const container = document.getElementById('test-results');
+                const div = document.createElement('div');
+                div.className = 'test-result test-info';
+                div.innerHTML = `<strong>معلومات:</strong> ${message}`;
+                container.appendChild(div);
+            }
+        };
+
+        // مولدات البيانات العشوائية
+        const Generators = {
+            gameMode: fc.constantFrom('ai', 'pvp'),
+            difficulty: fc.constantFrom('easy', 'medium', 'hard'),
+            player: fc.constantFrom('X', 'O'),
+            gameState: fc.array(fc.constantFrom('', 'X', 'O'), { minLength: 9, maxLength: 9 }),
+            theme: fc.constantFrom('dark', 'neon', 'classic'),
+            symbolSet: fc.constantFrom('classic', 'shapes', 'emoji', 'icons'),
+            scores: fc.record({
+                player: fc.nat(100),
+                ties: fc.nat(100),
+                ai: fc.nat(100)
+            })
+        };
+
+        // **Feature: enhanced-xo-game, Property 1: تبديل وضع اللعبة**
+        function testGameModeToggle() {
+            try {
+                const property = fc.property(
+                    Generators.gameMode,
+                    (initialMode) => {
+                        const gameManager = new GameModeManager();
+                        gameManager.currentMode = initialMode;
+                        
+                        const originalMode = gameManager.getCurrentMode();
+                        const newMode = gameManager.switchMode();
+                        
+                        // يجب أن يكون الوضع الجديد مختلفاً عن الأصلي
+                        return newMode !== originalMode && 
+                               ['ai', 'pvp'].includes(newMode) &&
+                               ['ai', 'pvp'].includes(originalMode);
+                    }
+                );
+
+                const result = fc.check(property, { numRuns: 100 });
+                TestHelpers.logResult(
+                    'خاصية 1: تبديل وضع اللعبة', 
+                    !result.failed,
+                    result.failed ? `فشل مع: ${JSON.stringify(result.counterexample)}` : 'نجح في 100 تكرار'
+                );
+                return !result.failed;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 1: تبديل وضع اللعبة', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 2: عرض أسماء اللاعبين في وضع PvP**
+        function testPlayerNamesInPvP() {
+            try {
+                const property = fc.property(
+                    fc.constantFrom('X', 'O'),
+                    (player) => {
+                        const gameManager = new GameModeManager();
+                        gameManager.currentMode = 'pvp';
+                        gameManager.updatePlayerNames();
+                        
+                        const playerName = gameManager.getPlayerName(player);
+                        
+                        // في وضع PvP، يجب أن تكون الأسماء مختلفة عن أسماء وضع AI
+                        return playerName !== 'أنت' && playerName !== 'الذكاء الاصطناعي' &&
+                               (playerName === 'اللاعب 1' || playerName === 'اللاعب 2');
+                    }
+                );
+
+                const result = fc.check(property, { numRuns: 100 });
+                TestHelpers.logResult(
+                    'خاصية 2: عرض أسماء اللاعبين في وضع PvP', 
+                    !result.failed,
+                    result.failed ? `فشل مع: ${JSON.stringify(result.counterexample)}` : 'نجح في 100 تكرار'
+                );
+                return !result.failed;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 2: عرض أسماء اللاعبين في وضع PvP', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 3: التناوب بدون ذكاء اصطناعي في وضع PvP**
+        function testPvPModeNoAI() {
+            try {
+                const gameManager = new GameModeManager();
+                gameManager.currentMode = 'pvp';
+                
+                // في وضع PvP، يجب أن يكون isPvPMode() يعيد true
+                const isPvP = gameManager.isPvPMode();
+                
+                TestHelpers.logResult(
+                    'خاصية 3: التناوب بدون ذكاء اصطناعي في وضع PvP', 
+                    isPvP,
+                    isPvP ? 'وضع PvP يعمل بشكل صحيح' : 'وضع PvP لا يعمل بشكل صحيح'
+                );
+                return isPvP;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 3: التناوب بدون ذكاء اصطناعي في وضع PvP', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 4: تحديث مؤشر الدور**
+        function testTurnIndicatorUpdate() {
+            try {
+                const property = fc.property(
+                    fc.record({
+                        mode: Generators.gameMode,
+                        player: Generators.player
+                    }),
+                    (data) => {
+                        const gameManager = new GameModeManager();
+                        gameManager.currentMode = data.mode;
+                        gameManager.updatePlayerNames();
+                        
+                        const playerName = gameManager.getPlayerName(data.player);
+                        
+                        // يجب أن يعيد اسم صالح للاعب
+                        return typeof playerName === 'string' && playerName.length > 0;
+                    }
+                );
+
+                const result = fc.check(property, { numRuns: 100 });
+                TestHelpers.logResult(
+                    'خاصية 4: تحديث مؤشر الدور', 
+                    !result.failed,
+                    result.failed ? `فشل مع: ${JSON.stringify(result.counterexample)}` : 'نجح في 100 تكرار'
+                );
+                return !result.failed;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 4: تحديث مؤشر الدور', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 6: إشعارات الإنجازات**
+        function testAchievementNotifications() {
+            try {
+                const achievementSystem = new AchievementSystem();
+                
+                // محاكاة تحقيق إنجاز
+                const gameResult = {
+                    winner: 'X',
+                    difficulty: 'hard',
+                    gameMode: 'ai',
+                    result: 'win'
+                };
+                
+                const unlockedAchievements = achievementSystem.checkAchievement('game-end', gameResult);
+                
+                // يجب أن يكون هناك إنجاز واحد على الأقل (قاهر الآلة)
+                const hasAchievement = unlockedAchievements.length > 0 && unlockedAchievements[0] !== null;
+                
+                TestHelpers.logResult(
+                    'خاصية 6: إشعارات الإنجازات', 
+                    hasAchievement,
+                    hasAchievement ? 'تم تحقيق إنجاز بنجاح' : 'لم يتم تحقيق أي إنجاز'
+                );
+                return hasAchievement;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 6: إشعارات الإنجازات', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 7: إنجاز سلسلة الانتصارات**
+        function testWinStreakAchievement() {
+            try {
+                const achievementSystem = new AchievementSystem();
+                
+                // محاكاة سلسلة انتصارات
+                const streakData = { streak: 3 };
+                const unlockedAchievements = achievementSystem.checkAchievement('win-streak', streakData);
+                
+                // يجب أن يتم تحقيق إنجاز سلسلة الانتصارات
+                const hasStreakAchievement = unlockedAchievements.some(achievement => 
+                    achievement && achievement.id === 'win-streak-3'
+                );
+                
+                TestHelpers.logResult(
+                    'خاصية 7: إنجاز سلسلة الانتصارات', 
+                    hasStreakAchievement,
+                    hasStreakAchievement ? 'تم تحقيق إنجاز سلسلة الانتصارات' : 'لم يتم تحقيق إنجاز سلسلة الانتصارات'
+                );
+                return hasStreakAchievement;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 7: إنجاز سلسلة الانتصارات', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 8: إنجاز المدافع الصلب**
+        function testDefenderAchievement() {
+            try {
+                const achievementSystem = new AchievementSystem();
+                
+                // محاكاة 5 تعادلات مع الذكاء الاصطناعي الصعب
+                for (let i = 0; i < 5; i++) {
+                    const gameResult = {
+                        winner: null,
+                        difficulty: 'hard',
+                        gameMode: 'ai',
+                        result: 'tie'
+                    };
+                    achievementSystem.checkAchievement('game-end', gameResult);
+                }
+                
+                // التحقق من تحقيق الإنجاز
+                const achievements = achievementSystem.getAchievements();
+                const defenderAchievement = achievements.find(a => a.id === 'hard-ties-5');
+                
+                TestHelpers.logResult(
+                    'خاصية 8: إنجاز المدافع الصلب', 
+                    defenderAchievement && defenderAchievement.unlocked,
+                    defenderAchievement && defenderAchievement.unlocked ? 'تم تحقيق إنجاز المدافع الصلب' : 'لم يتم تحقيق إنجاز المدافع الصلب'
+                );
+                return defenderAchievement && defenderAchievement.unlocked;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 8: إنجاز المدافع الصلب', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 9: إنجاز اللاعب المثابر**
+        function testPersistentPlayerAchievement() {
+            try {
+                const achievementSystem = new AchievementSystem();
+                
+                // محاكاة 10 ألعاب
+                for (let i = 0; i < 10; i++) {
+                    const gameResult = {
+                        winner: i % 2 === 0 ? 'X' : 'O',
+                        difficulty: 'medium',
+                        gameMode: 'ai',
+                        result: i % 2 === 0 ? 'win' : 'loss'
+                    };
+                    achievementSystem.checkAchievement('game-end', gameResult);
+                }
+                
+                // التحقق من تحقيق الإنجاز
+                const achievements = achievementSystem.getAchievements();
+                const persistentAchievement = achievements.find(a => a.id === 'games-10');
+                
+                TestHelpers.logResult(
+                    'خاصية 9: إنجاز اللاعب المثابر', 
+                    persistentAchievement && persistentAchievement.unlocked,
+                    persistentAchievement && persistentAchievement.unlocked ? 'تم تحقيق إنجاز اللاعب المثابر' : 'لم يتم تحقيق إنجاز اللاعب المثابر'
+                );
+                return persistentAchievement && persistentAchievement.unlocked;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 9: إنجاز اللاعب المثابر', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 10: إنجاز قاهر الآلة**
+        function testMachineConquerorAchievement() {
+            try {
+                const achievementSystem = new AchievementSystem();
+                
+                // محاكاة فوز على الذكاء الاصطناعي الصعب
+                const gameResult = {
+                    winner: 'X',
+                    difficulty: 'hard',
+                    gameMode: 'ai',
+                    result: 'win'
+                };
+                
+                const unlockedAchievements = achievementSystem.checkAchievement('game-end', gameResult);
+                const hasConquerorAchievement = unlockedAchievements.some(achievement => 
+                    achievement && achievement.id === 'beat-hard-ai'
+                );
+                
+                TestHelpers.logResult(
+                    'خاصية 10: إنجاز قاهر الآلة', 
+                    hasConquerorAchievement,
+                    hasConquerorAchievement ? 'تم تحقيق إنجاز قاهر الآلة' : 'لم يتم تحقيق إنجاز قاهر الآلة'
+                );
+                return hasConquerorAchievement;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 10: إنجاز قاهر الآلة', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 12: تطبيق الثيمات**
+        function testThemeApplication() {
+            try {
+                const property = fc.property(
+                    Generators.theme,
+                    (themeName) => {
+                        const themeManager = new ThemeManager();
+                        const success = themeManager.applyTheme(themeName);
+                        const currentTheme = themeManager.getCurrentTheme();
+                        
+                        // يجب أن يتم تطبيق الثيم بنجاح ويصبح الثيم الحالي
+                        return success && currentTheme === themeName;
+                    }
+                );
+
+                const result = fc.check(property, { numRuns: 100 });
+                TestHelpers.logResult(
+                    'خاصية 12: تطبيق الثيمات', 
+                    !result.failed,
+                    result.failed ? `فشل مع: ${JSON.stringify(result.counterexample)}` : 'نجح في 100 تكرار'
+                );
+                return !result.failed;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 12: تطبيق الثيمات', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 13: حفظ تفضيلات الثيم**
+        function testThemePreferenceSaving() {
+            try {
+                const themeManager = new ThemeManager();
+                const originalTheme = themeManager.getCurrentTheme();
+                
+                // تطبيق ثيم مختلف
+                const newTheme = originalTheme === 'dark' ? 'neon' : 'dark';
+                themeManager.applyTheme(newTheme);
+                
+                // إنشاء مدير ثيمات جديد للتحقق من الحفظ
+                const newThemeManager = new ThemeManager();
+                const loadedTheme = newThemeManager.getCurrentTheme();
+                
+                TestHelpers.logResult(
+                    'خاصية 13: حفظ تفضيلات الثيم', 
+                    loadedTheme === newTheme,
+                    loadedTheme === newTheme ? 'تم حفظ الثيم بنجاح' : `فشل: متوقع ${newTheme}، تم تحميل ${loadedTheme}`
+                );
+                return loadedTheme === newTheme;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 13: حفظ تفضيلات الثيم', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 15: تطبيق مجموعات الرموز**
+        function testSymbolSetApplication() {
+            try {
+                const property = fc.property(
+                    Generators.symbolSet,
+                    (symbolSetName) => {
+                        const symbolManager = new SymbolManager();
+                        const success = symbolManager.setSymbolSet(symbolSetName);
+                        const currentSet = symbolManager.getCurrentSet();
+                        
+                        // يجب أن يتم تطبيق مجموعة الرموز بنجاح
+                        return success && currentSet === symbolSetName;
+                    }
+                );
+
+                const result = fc.check(property, { numRuns: 100 });
+                TestHelpers.logResult(
+                    'خاصية 15: تطبيق مجموعات الرموز', 
+                    !result.failed,
+                    result.failed ? `فشل مع: ${JSON.stringify(result.counterexample)}` : 'نجح في 100 تكرار'
+                );
+                return !result.failed;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 15: تطبيق مجموعات الرموز', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 16: حفظ تفضيلات الرموز**
+        function testSymbolPreferenceSaving() {
+            try {
+                const symbolManager = new SymbolManager();
+                const originalSet = symbolManager.getCurrentSet();
+                
+                // تطبيق مجموعة رموز مختلفة
+                const newSet = originalSet === 'classic' ? 'shapes' : 'classic';
+                symbolManager.setSymbolSet(newSet);
+                
+                // إنشاء مدير رموز جديد للتحقق من الحفظ
+                const newSymbolManager = new SymbolManager();
+                const loadedSet = newSymbolManager.getCurrentSet();
+                
+                TestHelpers.logResult(
+                    'خاصية 16: حفظ تفضيلات الرموز', 
+                    loadedSet === newSet,
+                    loadedSet === newSet ? 'تم حفظ الرموز بنجاح' : `فشل: متوقع ${newSet}، تم تحميل ${loadedSet}`
+                );
+                return loadedSet === newSet;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 16: حفظ تفضيلات الرموز', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // اختبار البنية المعيارية
+        function testModularStructure() {
+            try {
+                const components = [
+                    { name: 'GameModeManager', class: GameModeManager },
+                    { name: 'AchievementSystem', class: AchievementSystem },
+                    { name: 'ThemeManager', class: ThemeManager },
+                    { name: 'SymbolManager', class: SymbolManager },
+                    { name: 'StatisticsTracker', class: StatisticsTracker },
+                    { name: 'AudioManager', class: AudioManager },
+                    { name: 'SaveStateManager', class: SaveStateManager }
+                ];
+
+                let allComponentsValid = true;
+                let details = '';
+
+                components.forEach(component => {
+                    try {
+                        const instance = new component.class();
+                        const isValid = instance && typeof instance === 'object';
+                        details += `${component.name}: ${isValid ? 'صالح' : 'غير صالح'}\n`;
+                        if (!isValid) allComponentsValid = false;
+                    } catch (error) {
+                        details += `${component.name}: خطأ - ${error.message}\n`;
+                        allComponentsValid = false;
+                    }
+                });
+
+                TestHelpers.logResult(
+                    'اختبار البنية المعيارية',
+                    allComponentsValid,
+                    details
+                );
+                return allComponentsValid;
+            } catch (error) {
+                TestHelpers.logResult('اختبار البنية المعيارية', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // اختبار واجهات المكونات
+        function testComponentInterfaces() {
+            try {
+                let allInterfacesValid = true;
+                let details = '';
+
+                // اختبار GameModeManager
+                const gameManager = new GameModeManager();
+                const hasRequiredMethods = [
+                    'switchMode', 'getCurrentMode', 'setPlayerNames', 
+                    'getPlayerName', 'isPvPMode'
+                ].every(method => typeof gameManager[method] === 'function');
+                
+                details += `GameModeManager interfaces: ${hasRequiredMethods ? 'صالحة' : 'غير صالحة'}\n`;
+                if (!hasRequiredMethods) allInterfacesValid = false;
+
+                // اختبار AchievementSystem
+                const achievementSystem = new AchievementSystem();
+                const hasAchievementMethods = [
+                    'checkAchievement', 'unlockAchievement', 'getAchievements'
+                ].every(method => typeof achievementSystem[method] === 'function');
+                
+                details += `AchievementSystem interfaces: ${hasAchievementMethods ? 'صالحة' : 'غير صالحة'}\n`;
+                if (!hasAchievementMethods) allInterfacesValid = false;
+
+                TestHelpers.logResult(
+                    'اختبار واجهات المكونات',
+                    allInterfacesValid,
+                    details
+                );
+                return allInterfacesValid;
+            } catch (error) {
+                TestHelpers.logResult('اختبار واجهات المكونات', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // تشغيل جميع الاختبارات
+        function runAllTests() {
+            TestHelpers.logInfo('بدء تشغيل اختبارات الخصائص...');
+            
+            const tests = [
+                testModularStructure,
+                testComponentInterfaces,
+                testGameModeToggle,
+                testPlayerNamesInPvP,
+                testPvPModeNoAI,
+                testTurnIndicatorUpdate,
+                testWinnerDisplayInPvP,
+                testAchievementNotifications,
+                testWinStreakAchievement,
+                testDefenderAchievement,
+                testPersistentPlayerAchievement,
+                testMachineConquerorAchievement,
+                testAchievementsList,
+                testThemeApplication,
+                testThemePreferenceSaving,
+                testThemeRestoration,
+                testStatisticsDisplay,
+                testSoundPlayback,
+                testSoundControl,
+                testAutoSaveGameState,
+                testGameStateRestoration,
+                testClearSavedState,
+                testComponentIntegration,
+                testPerformance,
+                testAIvsAIMode
+            ];
+
+            let passedTests = 0;
+            tests.forEach(test => {
+                if (test()) passedTests++;
+            });
+
+            TestHelpers.logInfo(`انتهت الاختبارات: ${passedTests}/${tests.length} نجح`);
+            
+            if (passedTests === tests.length) {
+                TestHelpers.logResult('جميع الاختبارات', true, 'نجحت جميع اختبارات النظام المحسّن');
+            } else {
+                TestHelpers.logResult('جميع الاختبارات', false, `فشل ${tests.length - passedTests} من ${tests.length} اختبارات`);
+            }
+        }
+
+        // تشغيل الاختبارات عند تحميل الصفحة
+        document.addEventListener('DOMContentLoaded', runAllTests);
+    </script>
+</body>
+</html>   
+     // **Feature: enhanced-xo-game, Property 17: عرض الإحصائيات الصحيحة**
+        function testStatisticsDisplay() {
+            try {
+                const statisticsTracker = new StatisticsTracker();
+                
+                // محاكاة بعض الألعاب
+                const gameResults = [
+                    { winner: 'X', difficulty: 'easy', gameMode: 'ai', result: 'win' },
+                    { winner: 'O', difficulty: 'easy', gameMode: 'ai', result: 'loss' },
+                    { winner: null, difficulty: 'medium', gameMode: 'ai', result: 'tie' },
+                    { winner: 'X', difficulty: 'hard', gameMode: 'ai', result: 'win' },
+                    { winner: 'X', difficulty: 'hard', gameMode: 'ai', result: 'win' }
+                ];
+                
+                gameResults.forEach(result => {
+                    statisticsTracker.updateStats(result);
+                });
+                
+                const stats = statisticsTracker.getDetailedStats();
+                
+                // التحقق من صحة الإحصائيات
+                const totalGamesCorrect = stats.totalGames === gameResults.length;
+                const winRateCorrect = stats.winRates.easy === 50; // 1 فوز من 2 ألعاب
+                const streakCorrect = stats.currentWinStreak === 2; // آخر فوزين متتاليين
+                
+                const allCorrect = totalGamesCorrect && winRateCorrect && streakCorrect;
+                
+                TestHelpers.logResult(
+                    'خاصية 17: عرض الإحصائيات الصحيحة', 
+                    allCorrect,
+                    allCorrect ? 'جميع الإحصائيات صحيحة' : `أخطاء: إجمالي=${totalGamesCorrect}, معدل=${winRateCorrect}, سلسلة=${streakCorrect}`
+                );
+                return allCorrect;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 17: عرض الإحصائيات الصحيحة', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }   
+     // **Feature: enhanced-xo-game, Property 18: تشغيل الأصوات المناسبة**
+        function testSoundPlayback() {
+            try {
+                const audioManager = new AudioManager();
+                
+                // اختبار تفعيل الصوت
+                audioManager.enableSound();
+                const soundEnabled = audioManager.isSoundEnabled();
+                
+                // اختبار وجود الأصوات
+                const hasSounds = audioManager.sounds && 
+                                 typeof audioManager.sounds.click === 'function' &&
+                                 typeof audioManager.sounds.win === 'function' &&
+                                 typeof audioManager.sounds.tie === 'function';
+                
+                const allCorrect = soundEnabled && hasSounds;
+                
+                TestHelpers.logResult(
+                    'خاصية 18: تشغيل الأصوات المناسبة', 
+                    allCorrect,
+                    allCorrect ? 'جميع الأصوات متاحة' : `أخطاء: تفعيل=${soundEnabled}, أصوات=${hasSounds}`
+                );
+                return allCorrect;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 18: تشغيل الأصوات المناسبة', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 19: تحكم في إعدادات الصوت**
+        function testSoundControl() {
+            try {
+                const audioManager = new AudioManager();
+                
+                // اختبار تبديل الصوت
+                const initialState = audioManager.isSoundEnabled();
+                const newState = audioManager.toggleSound();
+                const finalState = audioManager.isSoundEnabled();
+                
+                // يجب أن يكون الحالة الجديدة مختلفة عن الأولى
+                const toggleWorked = newState !== initialState && finalState === newState;
+                
+                // اختبار الحفظ
+                const newAudioManager = new AudioManager();
+                const savedState = newAudioManager.isSoundEnabled();
+                const saveWorked = savedState === finalState;
+                
+                const allCorrect = toggleWorked && saveWorked;
+                
+                TestHelpers.logResult(
+                    'خاصية 19: تحكم في إعدادات الصوت', 
+                    allCorrect,
+                    allCorrect ? 'التحكم في الصوت يعمل بشكل صحيح' : `أخطاء: تبديل=${toggleWorked}, حفظ=${saveWorked}`
+                );
+                return allCorrect;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 19: تحكم في إعدادات الصوت', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }   
+     // **Feature: enhanced-xo-game, Property 20: حفظ حالة اللعبة تلقائياً**
+        function testAutoSaveGameState() {
+            try {
+                const saveStateManager = new SaveStateManager();
+                
+                // إنشاء حالة لعبة تجريبية
+                const gameState = {
+                    currentPlayer: 'X',
+                    gameActive: true,
+                    gameState: ['X', '', 'O', '', 'X', '', '', '', ''],
+                    difficulty: 'medium',
+                    scores: { player: 2, ties: 1, ai: 0 },
+                    round: 3
+                };
+                
+                // حفظ الحالة
+                const saveSuccess = saveStateManager.saveGameState(gameState);
+                
+                // التحقق من وجود البيانات في التخزين المحلي
+                const savedData = localStorage.getItem('xo-game-state');
+                const hasSavedData = savedData !== null;
+                
+                const allCorrect = saveSuccess && hasSavedData;
+                
+                TestHelpers.logResult(
+                    'خاصية 20: حفظ حالة اللعبة تلقائياً', 
+                    allCorrect,
+                    allCorrect ? 'تم حفظ الحالة بنجاح' : `أخطاء: حفظ=${saveSuccess}, بيانات=${hasSavedData}`
+                );
+                return allCorrect;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 20: حفظ حالة اللعبة تلقائياً', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 21: استعادة حالة اللعبة**
+        function testGameStateRestoration() {
+            try {
+                const saveStateManager = new SaveStateManager();
+                
+                // إنشاء حالة لعبة تجريبية
+                const originalState = {
+                    currentPlayer: 'O',
+                    gameActive: true,
+                    gameState: ['X', 'O', '', '', 'X', '', '', '', 'O'],
+                    difficulty: 'hard',
+                    scores: { player: 1, ties: 2, ai: 1 },
+                    round: 4
+                };
+                
+                // حفظ الحالة
+                saveStateManager.saveGameState(originalState);
+                
+                // استعادة الحالة
+                const restoredState = saveStateManager.loadGameState();
+                
+                // التحقق من صحة الاستعادة
+                const restorationCorrect = restoredState && 
+                                         restoredState.currentPlayer === originalState.currentPlayer &&
+                                         restoredState.difficulty === originalState.difficulty &&
+                                         restoredState.round === originalState.round;
+                
+                TestHelpers.logResult(
+                    'خاصية 21: استعادة حالة اللعبة', 
+                    restorationCorrect,
+                    restorationCorrect ? 'تم استعادة الحالة بنجاح' : 'فشل في استعادة الحالة'
+                );
+                return restorationCorrect;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 21: استعادة حالة اللعبة', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+        // **Feature: enhanced-xo-game, Property 22: مسح الحالة المحفوظة**
+        function testClearSavedState() {
+            try {
+                const saveStateManager = new SaveStateManager();
+                
+                // حفظ حالة أولاً
+                const gameState = {
+                    currentPlayer: 'X',
+                    gameActive: false,
+                    gameState: ['X', 'X', 'X', '', '', '', 'O', 'O', ''],
+                    difficulty: 'easy',
+                    scores: { player: 3, ties: 0, ai: 1 },
+                    round: 5
+                };
+                
+                saveStateManager.saveGameState(gameState);
+                
+                // التحقق من وجود الحالة
+                const hasStateBefore = saveStateManager.hasSavedState();
+                
+                // مسح الحالة
+                const clearSuccess = saveStateManager.clearSavedState();
+                
+                // التحقق من عدم وجود الحالة بعد المسح
+                const hasStateAfter = saveStateManager.hasSavedState();
+                
+                const allCorrect = hasStateBefore && clearSuccess && !hasStateAfter;
+                
+                TestHelpers.logResult(
+                    'خاصية 22: مسح الحالة المحفوظة', 
+                    allCorrect,
+                    allCorrect ? 'تم مسح الحالة بنجاح' : `أخطاء: قبل=${hasStateBefore}, مسح=${clearSuccess}, بعد=${hasStateAfter}`
+                );
+                return allCorrect;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 22: مسح الحالة المحفوظة', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }  
+      // اختبار التكامل بين المكونات
+        function testComponentIntegration() {
+            try {
+                // إنشاء جميع المكونات
+                const gameManager = new GameModeManager();
+                const achievementSystem = new AchievementSystem();
+                const themeManager = new ThemeManager();
+                const symbolManager = new SymbolManager();
+                const statisticsTracker = new StatisticsTracker();
+                const audioManager = new AudioManager();
+                const saveStateManager = new SaveStateManager();
+                
+                // اختبار التفاعل بين المكونات
+                let integrationWorked = true;
+                let details = '';
+                
+                // اختبار تبديل الوضع وتأثيره على الإحصائيات
+                gameManager.switchMode();
+                const gameResult = {
+                    winner: 'X',
+                    difficulty: 'medium',
+                    gameMode: gameManager.getCurrentMode(),
+                    result: 'win'
+                };
+                
+                const streak = statisticsTracker.updateStats(gameResult);
+                const achievements = achievementSystem.checkAchievement('win-streak', { streak });
+                
+                details += `تبديل الوضع: ${gameManager.getCurrentMode()}\n`;
+                details += `تحديث الإحصائيات: ${streak}\n`;
+                details += `فحص الإنجازات: ${achievements.length}\n`;
+                
+                // اختبار حفظ الحالة مع جميع المكونات
+                const complexState = {
+                    currentPlayer: 'O',
+                    gameActive: true,
+                    gameState: ['X', '', 'O', '', '', '', '', '', ''],
+                    difficulty: 'hard',
+                    scores: { player: 1, ties: 0, ai: 0 },
+                    round: 2,
+                    gameMode: gameManager.getCurrentMode(),
+                    theme: themeManager.getCurrentTheme(),
+                    symbolSet: symbolManager.getCurrentSet(),
+                    soundEnabled: audioManager.isSoundEnabled()
+                };
+                
+                const saveWorked = saveStateManager.saveGameState(complexState);
+                details += `حفظ الحالة المعقدة: ${saveWorked}\n`;
+                
+                TestHelpers.logResult(
+                    'اختبار التكامل بين المكونات',
+                    integrationWorked && saveWorked,
+                    details
+                );
+                return integrationWorked && saveWorked;
+            } catch (error) {
+                TestHelpers.logResult('اختبار التكامل بين المكونات', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        } 
+       // اختبار الأداء
+        function testPerformance() {
+            try {
+                const startTime = performance.now();
+                
+                // إنشاء جميع المكونات
+                const gameManager = new GameModeManager();
+                const achievementSystem = new AchievementSystem();
+                const themeManager = new ThemeManager();
+                const symbolManager = new SymbolManager();
+                const statisticsTracker = new StatisticsTracker();
+                const audioManager = new AudioManager();
+                const saveStateManager = new SaveStateManager();
+                
+                // محاكاة عمليات متعددة
+                for (let i = 0; i < 100; i++) {
+                    gameManager.switchMode();
+                    themeManager.applyTheme(i % 2 === 0 ? 'dark' : 'neon');
+                    symbolManager.setSymbolSet(i % 2 === 0 ? 'classic' : 'shapes');
+                    
+                    const gameResult = {
+                        winner: i % 3 === 0 ? 'X' : (i % 3 === 1 ? 'O' : null),
+                        difficulty: ['easy', 'medium', 'hard'][i % 3],
+                        gameMode: gameManager.getCurrentMode(),
+                        result: i % 3 === 0 ? 'win' : (i % 3 === 1 ? 'loss' : 'tie')
+                    };
+                    
+                    statisticsTracker.updateStats(gameResult);
+                    achievementSystem.checkAchievement('game-end', gameResult);
+                }
+                
+                const endTime = performance.now();
+                const executionTime = endTime - startTime;
+                
+                // يجب أن يكون الأداء معقولاً (أقل من ثانية واحدة)
+                const performanceGood = executionTime < 1000;
+                
+                TestHelpers.logResult(
+                    'اختبار الأداء',
+                    performanceGood,
+                    `وقت التنفيذ: ${executionTime.toFixed(2)} مللي ثانية`
+                );
+                return performanceGood;
+            } catch (error) {
+                TestHelpers.logResult('اختبار الأداء', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }
+
+  
+      // **Feature: enhanced-xo-game, Property 23: وضع AI ضد AI**
+        function testAIvsAIMode() {
+            try {
+                const gameManager = new GameModeManager();
+                
+                // تعيين وضع AI vs AI
+                gameManager.currentMode = 'ai-vs-ai';
+                gameManager.updatePlayerNames();
+                
+                // التحقق من الوضع
+                const isAIvsAI = gameManager.isAIvsAIMode();
+                
+                // تعيين صعوبات مختلفة
+                gameManager.setAIDifficulty(1, 'easy');
+                gameManager.setAIDifficulty(2, 'hard');
+                
+                const ai1Difficulty = gameManager.getAIDifficulty(1);
+                const ai2Difficulty = gameManager.getAIDifficulty(2);
+                
+                // التحقق من أسماء اللاعبين
+                const player1Name = gameManager.getPlayerName('X');
+                const player2Name = gameManager.getPlayerName('O');
+                
+                const allCorrect = isAIvsAI && 
+                                 ai1Difficulty === 'easy' && 
+                                 ai2Difficulty === 'hard' &&
+                                 player1Name.includes('AI 1') &&
+                                 player2Name.includes('AI 2');
+                
+                TestHelpers.logResult(
+                    'خاصية 23: وضع AI ضد AI', 
+                    allCorrect,
+                    allCorrect ? 'وضع AI vs AI يعمل بشكل صحيح' : `أخطاء: وضع=${isAIvsAI}, AI1=${ai1Difficulty}, AI2=${ai2Difficulty}`
+                );
+                return allCorrect;
+            } catch (error) {
+                TestHelpers.logResult('خاصية 23: وضع AI ضد AI', false, `خطأ: ${error.message}`);
+                return false;
+            }
+        }

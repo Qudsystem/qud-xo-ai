@@ -1,0 +1,21 @@
+{
+  "name": "modern-xo-game",
+  "version": "1.0.0",
+  "description": "Modern X-O (Tic-Tac-Toe) Desktop Game",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "keywords": [
+    "xo",
+    "tic-tac-toe",
+    "game",
+    "electron"
+  ],
+  "author": "XO Game Developer",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.3.3"
+  }
+}

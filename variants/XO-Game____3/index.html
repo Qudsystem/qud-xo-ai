@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XO-Game 😊</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <h1>XO-Game 😊</h1>
+    <div id="gameContainer">
+      <div class="cell" data-index="0"></div>
+      <div class="cell" data-index="1"></div>
+      <div class="cell" data-index="2"></div>
+      <div class="cell" data-index="3"></div>
+      <div class="cell" data-index="4"></div>
+      <div class="cell" data-index="5"></div>
+      <div class="cell" data-index="6"></div>
+      <div class="cell" data-index="7"></div>
+      <div class="cell" data-index="8"></div>
+    </div>
+    <div id="statusText"></div>
+    <button id="restartBtn">Restart 🔄</button>
+    <br />
+    <button id="toggleDarkMode">Toggle Dark Mode</button>
+    <div id="gameControls">
+      <label for="playerX">Player X:</label>
+      <input type="text" id="playerX" placeholder="Enter Player X's Name" />
+      <label for="playerO">Player O:</label>
+      <input type="text" id="playerO" placeholder="Enter Player O's Name" />
+      <button id="startGame">Start Game🌙</btuton>
+    </div>
+    <div id="gameInfo">
+      <p id="currentPlayer"></p>
+      <p id="scoreX">Player X: 0</p>
+      <p id="scoreO">Player O: 0</p>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>

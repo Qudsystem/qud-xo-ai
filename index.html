@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern X-O Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="game-title">
+                <span class="title-x">X</span>
+                <span class="title-vs">-</span>
+                <span class="title-o">O</span>
+            </h1>
+            <div class="subtitle">Modern Tic-Tac-Toe</div>
+        </header>
+
+        <div class="game-info">
+            <div class="score-board">
+                <div class="score-item player-x">
+                    <div class="score-label">Player X</div>
+                    <div class="score-value" id="scoreX">0</div>
+                </div>
+                <div class="score-item draws">
+                    <div class="score-label">Draws</div>
+                    <div class="score-value" id="scoreDraw">0</div>
+                </div>
+                <div class="score-item player-o">
+                    <div class="score-label">Player O</div>
+                    <div class="score-value" id="scoreO">0</div>
+                </div>
+            </div>
+            
+            <div class="current-player">
+                <span id="currentPlayerText">Player X's Turn</span>
+            </div>
+        </div>
+
+        <div class="game-board" id="gameBoard">
+            <div class="cell" data-index="0"></div>
+            <div class="cell" data-index="1"></div>
+            <div class="cell" data-index="2"></div>
+            <div class="cell" data-index="3"></div>
+            <div class="cell" data-index="4"></div>
+            <div class="cell" data-index="5"></div>
+            <div class="cell" data-index="6"></div>
+            <div class="cell" data-index="7"></div>
+            <div class="cell" data-index="8"></div>
+        </div>
+
+        <div class="game-controls">
+            <button class="btn btn-restart" id="restartBtn">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M17.5 10C17.5 14.1421 14.1421 17.5 10 17.5C5.85786 17.5 2.5 14.1421 2.5 10C2.5 5.85786 5.85786 2.5 10 2.5C12.0833 2.5 13.9667 3.35 15.3333 4.66667" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M13.3333 2.5V5.83333H16.6667" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Restart Game
+            </button>
+            
+            <div class="mode-toggle">
+                <button class="btn btn-mode" id="modeBtn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M10 2.5C10 2.5 7.5 5 7.5 8.75C7.5 10.1304 8.02678 11.4543 8.96447 12.4205C9.90215 13.3867 11.163 13.9286 12.5 13.9286C13.837 13.9286 15.0978 13.3867 16.0355 12.4205C16.9732 11.4543 17.5 10.1304 17.5 8.75C17.5 5 15 2.5 15 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2.5 10C2.5 11.9891 3.29018 13.8968 4.6967 15.3033C6.10322 16.7098 8.01088 17.5 10 17.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <span id="modeText">vs AI</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="game-message" id="gameMessage"></div>
+    </div>
+
+    <!-- Winner Modal -->
+    <div class="modal" id="winnerModal">
+        <div class="modal-content">
+            <div class="modal-icon" id="modalIcon"></div>
+            <h2 class="modal-title" id="modalTitle">Player X Wins!</h2>
+            <p class="modal-subtitle" id="modalSubtitle">Congratulations!</p>
+            <button class="btn btn-primary" id="playAgainBtn">Play Again</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+
+  <!-- QudSystem Centralized Updatable Ad Slot & Footer (Ad-Free in Paid Plans) -->
+  <script src="./qud-ad-slot.js" data-project-name="Qud XO AI — Smart Tic-Tac-Toe Game" data-project-slug="qud-xo-ai" data-category="Web Apps & Interactive Experiences" defer></script>
+</body>
+</html>
